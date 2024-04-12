@@ -17,28 +17,33 @@ class BaseDatafeed(ABC):
         """
         Initialize datafeed service connection.
         """
-        pass
 
-    def query_bar_history(self, req: HistoryRequest, output: Callable = print) -> Optional[List[BarData]]:
+    def query_bar_history(  # pylint: disable=useless-return
+        self, req: HistoryRequest, output: Callable = print
+    ) -> Optional[List[BarData]]:  # pylint: disable=unused-argument
         """
         Query history bar data.
         """
         output(_("查询K线数据失败：没有正确配置数据服务"))
+        return None  # pylint: disable=R1711
 
-    def query_tick_history(self, req: HistoryRequest, output: Callable = print) -> Optional[List[TickData]]:
+    def query_tick_history(  # pylint: disable=useless-return
+        self, req: HistoryRequest, output: Callable = print
+    ) -> Optional[List[TickData]]:  # pylint: disable=unused-argument, useless-return
         """
         Query history tick data.
         """
         output(_("查询Tick数据失败：没有正确配置数据服务"))
+        return None
 
 
-datafeed: BaseDatafeed = None
+datafeed: Optional[BaseDatafeed] = None
 
 
 def get_datafeed() -> BaseDatafeed:
     """"""
     # Return datafeed object if already inited
-    global datafeed
+    global datafeed  # pylint: disable=global-statement
     if datafeed:
         return datafeed
 

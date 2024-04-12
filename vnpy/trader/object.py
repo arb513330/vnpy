@@ -2,14 +2,15 @@
 Basic data structure used for general trading function in the trading platform.
 """
 
-from dataclasses import dataclass, field
-from datetime import datetime
+import numpy as np
+from dataclasses import dataclass, field, asdict
+from datetime import datetime as datetimetype
 from logging import INFO
 from typing import Optional
 
 from .constant import Direction, Exchange, Interval, Offset, Status, Product, OptionType, OrderType
 
-ACTIVE_STATUSES = set([Status.SUBMITTING, Status.NOTTRADED, Status.PARTTRADED])
+ACTIVE_STATUSES = {Status.SUBMITTING, Status.NOTTRADED, Status.PARTTRADED}
 
 
 @dataclass
@@ -23,6 +24,9 @@ class BaseData:
 
     extra: Optional[dict] = field(default=None, init=False)
 
+    def __str__(self):
+        return f"{self.__class__.__name__}({','.join([f'{k}:{v}' for k, v in asdict(self).items()])})"
+
 
 @dataclass
 class TickData(BaseData):
@@ -35,7 +39,7 @@ class TickData(BaseData):
 
     symbol: str
     exchange: Exchange
-    datetime: datetime
+    datetime: datetimetype
 
     name: str = ""
     volume: float = 0
@@ -52,16 +56,16 @@ class TickData(BaseData):
     pre_close: float = 0
 
     bid_price_1: float = 0
-    bid_price_2: float = 0
-    bid_price_3: float = 0
-    bid_price_4: float = 0
-    bid_price_5: float = 0
+    bid_price_2: float = np.nan
+    bid_price_3: float = np.nan
+    bid_price_4: float = np.nan
+    bid_price_5: float = np.nan
 
     ask_price_1: float = 0
-    ask_price_2: float = 0
-    ask_price_3: float = 0
-    ask_price_4: float = 0
-    ask_price_5: float = 0
+    ask_price_2: float = np.nan
+    ask_price_3: float = np.nan
+    ask_price_4: float = np.nan
+    ask_price_5: float = np.nan
 
     bid_volume_1: float = 0
     bid_volume_2: float = 0
@@ -75,11 +79,20 @@ class TickData(BaseData):
     ask_volume_4: float = 0
     ask_volume_5: float = 0
 
-    localtime: datetime = None
+    localtime: datetimetype = None
 
     def __post_init__(self) -> None:
         """"""
         self.vt_symbol: str = f"{self.symbol}.{self.exchange.value}"
+
+    def __str__(self):
+        return (
+            f"Tick@{self.datetime.isoformat()}: bid:{self.bid_price_1}({self.bid_volume_1}) "
+            f"ask:{self.ask_price_1}({self.ask_volume_1}) last:{self.last_price}({self.last_volume})"
+        )
+
+    def fullstr(self) -> str:
+        return super().__str__()
 
 
 @dataclass
@@ -90,7 +103,7 @@ class BarData(BaseData):
 
     symbol: str
     exchange: Exchange
-    datetime: datetime
+    datetime: datetimetype
 
     interval: Interval = None
     volume: float = 0
@@ -124,7 +137,7 @@ class OrderData(BaseData):
     volume: float = 0
     traded: float = 0
     status: Status = Status.SUBMITTING
-    datetime: datetime = None
+    datetime: datetimetype = None
     reference: str = ""
 
     def __post_init__(self) -> None:
@@ -142,10 +155,12 @@ class OrderData(BaseData):
         """
         Create cancel request object from order.
         """
-        req: CancelRequest = CancelRequest(
-            orderid=self.orderid, symbol=self.symbol, exchange=self.exchange
-        )
+        req: CancelRequest = CancelRequest(orderid=self.orderid, symbol=self.symbol, exchange=self.exchange)
         return req
+
+    def __str__(self):
+        dt_str = "" if self.datetime is None else "@" + self.datetime.isoformat()
+        return f"Order({self.vt_symbol}){dt_str}: {self.direction} {self.offset} {self.volume}@{self.price} traded:{self.traded} status:{self.status}"
 
 
 @dataclass
@@ -164,13 +179,17 @@ class TradeData(BaseData):
     offset: Offset = Offset.NONE
     price: float = 0
     volume: float = 0
-    datetime: datetime = None
+    datetime: datetimetype = None
 
     def __post_init__(self) -> None:
         """"""
         self.vt_symbol: str = f"{self.symbol}.{self.exchange.value}"
         self.vt_orderid: str = f"{self.gateway_name}.{self.orderid}"
         self.vt_tradeid: str = f"{self.gateway_name}.{self.tradeid}"
+
+    def __str__(self):
+        dt_str = "" if self.datetime is None else "@" + self.datetime.isoformat()
+        return f"Trade({self.vt_symbol})@{dt_str}: {self.direction} {self.offset} {self.volume}@{self.price}"
 
 
 @dataclass
@@ -224,7 +243,7 @@ class LogData(BaseData):
 
     def __post_init__(self) -> None:
         """"""
-        self.time: datetime = datetime.now()
+        self.time: datetimetype = datetimetype.now()
 
 
 @dataclass
@@ -240,19 +259,19 @@ class ContractData(BaseData):
     size: float
     pricetick: float
 
-    min_volume: float = 1           # minimum order volume
-    max_volume: float = None        # maximum order volume
-    stop_supported: bool = False    # whether server supports stop order
-    net_position: bool = False      # whether gateway uses net position volume
-    history_data: bool = False      # whether gateway provides bar history data
+    min_volume: float = 1  # minimum trading volume of the contract
+    max_volume: float = float("inf")
+    stop_supported: bool = False  # whether server supports stop order
+    net_position: bool = False  # whether gateway uses net position volume
+    history_data: bool = False  # whether gateway provides bar history data
 
     option_strike: float = 0
-    option_underlying: str = ""     # vt_symbol of underlying contract
+    option_underlying: str = ""  # vt_symbol of underlying contract
     option_type: OptionType = None
-    option_listed: datetime = None
-    option_expiry: datetime = None
+    option_listed: datetimetype = None
+    option_expiry: datetimetype = None
     option_portfolio: str = ""
-    option_index: str = ""          # for identifying options with same strike price
+    option_index: str = ""  # for identifying options with same strike price
 
     def __post_init__(self) -> None:
         """"""
@@ -277,7 +296,7 @@ class QuoteData(BaseData):
     bid_offset: Offset = Offset.NONE
     ask_offset: Offset = Offset.NONE
     status: Status = Status.SUBMITTING
-    datetime: datetime = None
+    datetime: datetimetype = None
     reference: str = ""
 
     def __post_init__(self) -> None:
@@ -295,9 +314,7 @@ class QuoteData(BaseData):
         """
         Create cancel request object from quote.
         """
-        req: CancelRequest = CancelRequest(
-            orderid=self.quoteid, symbol=self.symbol, exchange=self.exchange
-        )
+        req: CancelRequest = CancelRequest(orderid=self.quoteid, symbol=self.symbol, exchange=self.exchange)
         return req
 
 
@@ -376,8 +393,8 @@ class HistoryRequest:
 
     symbol: str
     exchange: Exchange
-    start: datetime
-    end: datetime = None
+    start: datetimetype
+    end: datetimetype = None
     interval: Interval = None
 
     def __post_init__(self) -> None:
@@ -423,3 +440,77 @@ class QuoteRequest:
             gateway_name=gateway_name,
         )
         return quote
+
+
+@dataclass
+class Commission(BaseData):
+    """
+    Margin rate data for the contract .
+    """
+
+    symbol: str
+    exchange: Exchange = Exchange.UNKNOWN  # 可能有空
+    ratio_bymoney: float = 0.0  # 手续费率，如区分开平仓则为开仓手续费率
+    ratio_byvolume: float = 0.0  # 手续费率，如区分开平仓则为开仓手续费率
+    close_ratio_bymoney: float = 0.0  # 平仓手续费率，如不区分，则设为0
+    close_ratio_byvolume: float = 0.0  # 平仓手续费，如不区分，则设为0
+    close_today_ratio_bymoney: float = 0.0  # 平今手续费率，如不区分，则设为0
+    close_today_ratio_byvolume: float = 0.0  # 平今手续费，如不区分，则设为0
+
+    def __post_init__(self):
+        """"""
+        self.vt_symbol = f"{self.symbol}.{self.exchange}"
+
+    def get_all_commission_senarios(self, price, size=1.0):
+        money = price * size
+        base_scenario = {"开": money * self.ratio_bymoney + self.ratio_byvolume}
+        if self.close_ratio_bymoney < 1e-10 and self.close_ratio_byvolume < 1e-10:
+            base_scenario["平"] = money * self.ratio_bymoney + self.ratio_byvolume
+        else:
+            base_scenario["平"] = money * self.close_ratio_bymoney + self.close_ratio_byvolume
+        if self.close_today_ratio_bymoney > 1e-10 and self.close_today_ratio_byvolume > 1e-10:
+            base_scenario["平今"] = money * self.close_today_ratio_bymoney + self.close_today_ratio_byvolume
+        return base_scenario
+
+    def __call__(self, price: float, Offset: Offset = Offset.NONE, size: float = 1.0, is_today: bool = False):
+        """
+        计算手续费
+        """
+        if Offset == Offset.CLOSE:
+            if is_today:
+                return price * size * self.close_today_ratio_bymoney + self.close_today_ratio_byvolume
+            return price * size * self.close_ratio_bymoney + self.close_ratio_byvolume
+        return price * size * self.ratio_bymoney + self.ratio_byvolume
+
+
+@dataclass
+class MarginRate(BaseData):
+    """
+    Margin rate data for the contract .
+    """
+
+    symbol: str
+    exchange: Exchange = Exchange.UNKNOWN  # 可能有空
+    long_margin_rate: float = 0.1  # 多头保证金率
+    long_margin_perlot: float = 0.0  # 多头每手保证金
+    short_margin_rate: float = 0.1  # 空头保证金率
+    short_margin_perlot: float = 0.0  # 空头每手保证金
+
+    def __post_init__(self):
+        """"""
+        self.vt_symbol = f"{self.symbol}.{self.exchange}"
+
+    def get_all_margin_senarios(self, price, size=1.0):
+        base_scenario = {
+            "多": price * size * self.long_margin_rate + self.long_margin_perlot,
+            "空": price * size * self.short_margin_rate + self.short_margin_perlot,
+        }
+        return base_scenario
+
+    def __call__(self, price: float, direction: Direction, size: float = 1.0):
+        """
+        计算保证金
+        """
+        if direction == Direction.LONG:
+            return price * size * self.long_margin_rate + self.long_margin_perlot
+        return price * size * self.short_margin_rate + self.short_margin_perlot

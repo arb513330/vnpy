@@ -1,3 +1,4 @@
+import re
 import logging
 from logging import Logger
 import smtplib
@@ -21,7 +22,9 @@ from .event import (
     EVENT_ACCOUNT,
     EVENT_CONTRACT,
     EVENT_LOG,
-    EVENT_QUOTE
+    EVENT_QUOTE,
+    EVENT_COMMISION,
+    EVENT_MARGINRATE,
 )
 from .gateway import BaseGateway
 from .object import (
@@ -39,10 +42,12 @@ from .object import (
     PositionData,
     AccountData,
     ContractData,
-    Exchange
+    Exchange,
+    Commission,
+    MarginRate,
 )
 from .setting import SETTINGS
-from .utility import get_folder_path, TRADER_DIR
+from .utility import get_folder_path, TRADER_DIR, extract_vt_symbol
 from .converter import OffsetConverter
 from .locale import _
 
@@ -65,8 +70,8 @@ class MainEngine:
         self.apps: Dict[str, BaseApp] = {}
         self.exchanges: List[Exchange] = []
 
-        os.chdir(TRADER_DIR)    # Change working directory
-        self.init_engines()     # Initialize function engines
+        os.chdir(TRADER_DIR)  # Change working directory
+        self.init_engines()  # Initialize function engines
 
     def add_engine(self, engine_class: Any) -> "BaseEngine":
         """
@@ -260,7 +265,6 @@ class BaseEngine(ABC):
 
     def close(self) -> None:
         """"""
-        pass
 
 
 class LogEngine(BaseEngine):
@@ -275,14 +279,16 @@ class LogEngine(BaseEngine):
         if not SETTINGS["log.active"]:
             return
 
-        self.level: int = SETTINGS["log.level"]
+        self.level: int = (
+            SETTINGS["log.level"]
+            if isinstance(SETTINGS["log.level"], int)
+            else getattr(logging, SETTINGS["log.level"], logging.CRITICAL)
+        )
 
         self.logger: Logger = logging.getLogger("veighna")
         self.logger.setLevel(self.level)
 
-        self.formatter: logging.Formatter = logging.Formatter(
-            "%(asctime)s  %(levelname)s: %(message)s"
-        )
+        self.formatter: logging.Formatter = logging.Formatter("%(asctime)s  %(levelname)s: %(message)s")
 
         self.add_null_handler()
 
@@ -316,12 +322,11 @@ class LogEngine(BaseEngine):
         """
         today_date: str = datetime.now().strftime("%Y%m%d")
         filename: str = f"vt_{today_date}.log"
-        log_path: Path = get_folder_path("log")
+        log_path: Path = get_folder_path("log") if SETTINGS.get("log.path", "") == "" else Path(SETTINGS["log.path"])
+        log_path.mkdir(parents=True, exist_ok=True)
         file_path: Path = log_path.joinpath(filename)
 
-        file_handler: logging.FileHandler = logging.FileHandler(
-            file_path, mode="a", encoding="utf8"
-        )
+        file_handler: logging.FileHandler = logging.FileHandler(file_path, mode="a", encoding="utf8")
         file_handler.setLevel(self.level)
         file_handler.setFormatter(self.formatter)
         self.logger.addHandler(file_handler)
@@ -354,6 +359,8 @@ class OmsEngine(BaseEngine):
         self.accounts: Dict[str, AccountData] = {}
         self.contracts: Dict[str, ContractData] = {}
         self.quotes: Dict[str, QuoteData] = {}
+        self.margin_calculators: Dict[str, MarginRate] = {}
+        self.commission_calculators: Dict[str, Commission] = {}
 
         self.active_orders: Dict[str, OrderData] = {}
         self.active_quotes: Dict[str, QuoteData] = {}
@@ -372,6 +379,8 @@ class OmsEngine(BaseEngine):
         self.main_engine.get_account = self.get_account
         self.main_engine.get_contract = self.get_contract
         self.main_engine.get_quote = self.get_quote
+        self.main_engine.get_marginrate = self.get_marginrate
+        self.main_engine.get_commission = self.get_commission
 
         self.main_engine.get_all_ticks = self.get_all_ticks
         self.main_engine.get_all_orders = self.get_all_orders
@@ -396,6 +405,8 @@ class OmsEngine(BaseEngine):
         self.event_engine.register(EVENT_ACCOUNT, self.process_account_event)
         self.event_engine.register(EVENT_CONTRACT, self.process_contract_event)
         self.event_engine.register(EVENT_QUOTE, self.process_quote_event)
+        self.event_engine.register(EVENT_COMMISION, self.process_commission_event)
+        self.event_engine.register(EVENT_MARGINRATE, self.process_marginrate_event)
 
     def process_tick_event(self, event: Event) -> None:
         """"""
@@ -442,7 +453,8 @@ class OmsEngine(BaseEngine):
     def process_account_event(self, event: Event) -> None:
         """"""
         account: AccountData = event.data
-        self.accounts[account.vt_accountid] = account
+        if account is not None:
+            self.accounts[account.vt_accountid] = account
 
     def process_contract_event(self, event: Event) -> None:
         """"""
@@ -464,6 +476,18 @@ class OmsEngine(BaseEngine):
         # Otherwise, pop inactive quote from in dict
         elif quote.vt_quoteid in self.active_quotes:
             self.active_quotes.pop(quote.vt_quoteid)
+
+    def process_commission_event(self, event: Event):
+        if event.data:
+            commission: Commission = event.data
+            key = commission.symbol if commission.exchange == Exchange.UNKNOWN else commission.vt_symbol
+            self.commission_calculators[key] = commission
+
+    def process_marginrate_event(self, event: Event):
+        if event.data:
+            marginrate: MarginRate = event.data
+            key = marginrate.symbol if marginrate.exchange == Exchange.UNKNOWN else marginrate.vt_symbol
+            self.margin_calculators[key] = marginrate
 
     def get_tick(self, vt_symbol: str) -> Optional[TickData]:
         """
@@ -506,6 +530,38 @@ class OmsEngine(BaseEngine):
         Get latest quote data by vt_orderid.
         """
         return self.quotes.get(vt_quoteid, None)
+
+    def get_marginrate(self, vt_symbol: str) -> MarginRate:
+        if vt_symbol in self.margin_calculators:
+            return self.margin_calculators.get(vt_symbol)
+        symbol, exch = extract_vt_symbol(vt_symbol)
+        if symbol in self.margin_calculators:
+            return self.margin_calculators.get(symbol)
+        if vt_symbol in self.contracts:
+            contract: ContractData = self.contracts[vt_symbol]
+            gw: BaseGateway = self.main_engine.get_gateway(contract.gateway_name)
+            if gw:
+                gw.query_margin(SubscribeRequest(contract.symbol, contract.exchange))
+        return None
+
+    def get_commission(self, vt_symbol: str) -> Commission:
+        if vt_symbol in self.commission_calculators:
+            return self.commission_calculators[vt_symbol]
+        symbol, exch = extract_vt_symbol(vt_symbol)
+        if symbol in self.commission_calculators:
+            return self.commission_calculators[symbol]
+        if vt_symbol in self.contracts:
+            contract: ContractData = self.contracts[vt_symbol]
+            gw: BaseGateway = self.main_engine.get_gateway(contract.gateway_name)
+            if gw:
+                gw.query_commission(SubscribeRequest(contract.symbol, contract.exchange))
+        category = re.match(r"([a-zA-Z]+)\d+", symbol).group(1)
+        if exch != Exchange.UNKNOWN:
+            sym = f"{category}.{exch.value}"
+            if sym in self.commission_calculators:
+                return self.commission_calculators[sym]
+
+        return self.commission_calculators.get(category, None)
 
     def get_all_ticks(self) -> List[TickData]:
         """
@@ -559,9 +615,7 @@ class OmsEngine(BaseEngine):
             return list(self.active_orders.values())
         else:
             active_orders: List[OrderData] = [
-                order
-                for order in self.active_orders.values()
-                if order.vt_symbol == vt_symbol
+                order for order in self.active_orders.values() if order.vt_symbol == vt_symbol
             ]
             return active_orders
 
@@ -574,9 +628,7 @@ class OmsEngine(BaseEngine):
             return list(self.active_quotes.values())
         else:
             active_quotes: List[QuoteData] = [
-                quote
-                for quote in self.active_quotes.values()
-                if quote.vt_symbol == vt_symbol
+                quote for quote in self.active_quotes.values() if quote.vt_symbol == vt_symbol
             ]
             return active_quotes
 
@@ -589,11 +641,7 @@ class OmsEngine(BaseEngine):
             converter.update_order_request(req, vt_orderid)
 
     def convert_order_request(
-        self,
-        req: OrderRequest,
-        gateway_name: str,
-        lock: bool,
-        net: bool = False
+        self, req: OrderRequest, gateway_name: str, lock: bool, net: bool = False
     ) -> List[OrderRequest]:
         """
         Convert original order request according to given mode.

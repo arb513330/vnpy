@@ -12,6 +12,8 @@ from .event import (
     EVENT_CONTRACT,
     EVENT_LOG,
     EVENT_QUOTE,
+    EVENT_MARGINRATE,
+    EVENT_COMMISION,
 )
 from .object import (
     TickData,
@@ -28,7 +30,9 @@ from .object import (
     HistoryRequest,
     QuoteRequest,
     Exchange,
-    BarData
+    BarData,
+    MarginRate,
+    Commission,
 )
 
 
@@ -41,7 +45,7 @@ class BaseGateway(ABC):
 
     ---
     ## Basics
-    A gateway should satisfies:
+    A gateway should satisfy:
     * this class should be thread-safe:
         * all methods should be thread-safe
         * no mutable shared properties between objects.
@@ -54,7 +58,7 @@ class BaseGateway(ABC):
     all @abstractmethod
 
     ---
-    ## callbacks must response manually:
+    ## callbacks must respond manually:
     * on_tick
     * on_trade
     * on_order
@@ -152,6 +156,12 @@ class BaseGateway(ABC):
         """
         self.on_event(EVENT_CONTRACT, contract)
 
+    def on_margin_rate(self, margin: MarginRate) -> None:
+        self.on_event(EVENT_MARGINRATE, margin)
+
+    def on_commission(self, commission: Commission):
+        self.on_event(EVENT_COMMISION, commission)
+
     def write_log(self, msg: str) -> None:
         """
         Write a log event from gateway.
@@ -179,21 +189,18 @@ class BaseGateway(ABC):
         response callback/change status instead of write_log
 
         """
-        pass
 
     @abstractmethod
     def close(self) -> None:
         """
         Close gateway connection.
         """
-        pass
 
     @abstractmethod
     def subscribe(self, req: SubscribeRequest) -> None:
         """
         Subscribe tick data update.
         """
-        pass
 
     @abstractmethod
     def send_order(self, req: OrderRequest) -> str:
@@ -211,7 +218,6 @@ class BaseGateway(ABC):
 
         :return str vt_orderid for created OrderData
         """
-        pass
 
     @abstractmethod
     def cancel_order(self, req: CancelRequest) -> None:
@@ -220,7 +226,6 @@ class BaseGateway(ABC):
         implementation should finish the tasks blow:
         * send request to server
         """
-        pass
 
     def send_quote(self, req: QuoteRequest) -> str:
         """
@@ -245,27 +250,33 @@ class BaseGateway(ABC):
         implementation should finish the tasks blow:
         * send request to server
         """
-        pass
 
     @abstractmethod
     def query_account(self) -> None:
         """
         Query account balance.
         """
-        pass
 
     @abstractmethod
     def query_position(self) -> None:
         """
         Query holding positions.
         """
-        pass
 
     def query_history(self, req: HistoryRequest) -> List[BarData]:
         """
         Query bar history data.
         """
-        pass
+
+    def query_margin(self, req: SubscribeRequest) -> None:
+        """
+        Query margin requirement of instrument
+        """
+
+    def query_commission(self, req: SubscribeRequest) -> None:
+        """
+        Query commission rate of instrument
+        """
 
     def get_default_setting(self) -> Dict[str, Any]:
         """
@@ -286,7 +297,7 @@ class LocalOrderManager:
         # For generating local orderid
         self.order_prefix: str = order_prefix
         self.order_count: int = 0
-        self.orders: Dict[str, OrderData] = {}        # local_orderid: order
+        self.orders: Dict[str, OrderData] = {}  # local_orderid: order
 
         # Map between local and system orderid
         self.local_sys_orderid_map: Dict[str, str] = {}
@@ -299,7 +310,7 @@ class LocalOrderManager:
         self.push_data_callback: Callable = None
 
         # Cancel request buf
-        self.cancel_request_buf: Dict[str, CancelRequest] = {}    # local_orderid: req
+        self.cancel_request_buf: Dict[str, CancelRequest] = {}  # local_orderid: req
 
         # Hook cancel order function
         self._cancel_order: Callable = gateway.cancel_order

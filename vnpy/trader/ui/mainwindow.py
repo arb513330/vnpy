@@ -6,29 +6,18 @@ from types import ModuleType
 import webbrowser
 from functools import partial
 from importlib import import_module
-from typing import Callable, Dict, List, Tuple
+from typing import Callable, Dict, List, Tuple, Union
+
+import PySide6
 
 import vnpy
 from vnpy.event import EventEngine
 
+from ..engine import BaseApp, MainEngine
+from ..utility import TRADER_DIR, get_icon_path
 from .qt import QtCore, QtGui, QtWidgets
-from .widget import (
-    BaseMonitor,
-    TickMonitor,
-    OrderMonitor,
-    TradeMonitor,
-    PositionMonitor,
-    AccountMonitor,
-    LogMonitor,
-    ActiveOrderMonitor,
-    ConnectDialog,
-    ContractManager,
-    TradingWidget,
-    AboutDialog,
-    GlobalDialog
-)
-from ..engine import MainEngine, BaseApp
-from ..utility import get_icon_path, TRADER_DIR
+from .widget import (AboutDialog, AccountMonitor, ActiveOrderMonitor, BaseMonitor, ConnectDialog, ContractManager,
+                     GlobalDialog, LogMonitor, OrderMonitor, PositionMonitor, TickMonitor, TradeMonitor, TradingWidget)
 from ..locale import _
 
 
@@ -96,29 +85,19 @@ class MainWindow(QtWidgets.QMainWindow):
     def init_menu(self) -> None:
         """"""
         bar: QtWidgets.QMenuBar = self.menuBar()
-        bar.setNativeMenuBar(False)     # for mac and linux
+        bar.setNativeMenuBar(False)  # for mac and linux
 
         # System menu
         sys_menu: QtWidgets.QMenu = bar.addMenu(_("系统"))
 
         gateway_names: list = self.main_engine.get_all_gateway_names()
         for name in gateway_names:
-            func: Callable = partial(self.connect, name)
-            self.add_action(
-                sys_menu,
-                _("连接{}").format(name),
-                get_icon_path(__file__, "connect.ico"),
-                func
-            )
+            func: Callable = partial(self.connect_gateway_dialog, name)
+            self.add_action(sys_menu, _("连接{}").format(name), get_icon_path(__file__, "connect.ico"), func)
 
         sys_menu.addSeparator()
 
-        self.add_action(
-            sys_menu,
-            _("退出"),
-            get_icon_path(__file__, "exit.ico"),
-            self.close
-        )
+        self.add_action(sys_menu, _("退出"), get_icon_path(__file__, "exit.ico"), self.close)
 
         # App menu
         app_menu: QtWidgets.QMenu = bar.addMenu(_("功能"))
@@ -145,21 +124,21 @@ class MainWindow(QtWidgets.QMainWindow):
             _("查询合约"),
             get_icon_path(__file__, "contract.ico"),
             partial(self.open_widget, ContractManager, "contract"),
-            True
+            True,
         )
 
         self.add_action(
             help_menu,
             _("还原窗口"),
             get_icon_path(__file__, "restore.ico"),
-            self.restore_window_setting
+            self.restore_window_setting,
         )
 
         self.add_action(
             help_menu,
             _("测试邮件"),
             get_icon_path(__file__, "email.ico"),
-            self.send_test_email
+            self.send_test_email,
         )
 
         self.add_action(
@@ -167,7 +146,7 @@ class MainWindow(QtWidgets.QMainWindow):
             _("社区论坛"),
             get_icon_path(__file__, "forum.ico"),
             self.open_forum,
-            True
+            True,
         )
 
         self.add_action(
@@ -200,7 +179,7 @@ class MainWindow(QtWidgets.QMainWindow):
         action_name: str,
         icon_name: str,
         func: Callable,
-        toolbar: bool = False
+        toolbar: bool = False,
     ) -> None:
         """"""
         icon: QtGui.QIcon = QtGui.QIcon(icon_name)
@@ -215,10 +194,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.toolbar.addAction(action)
 
     def create_dock(
-        self,
-        widget_class: QtWidgets.QWidget,
-        name: str,
-        area: int
+        self, widget_class, name: str, area
     ) -> Tuple[QtWidgets.QWidget, QtWidgets.QDockWidget]:
         """
         Initialize a dock widget.
@@ -234,7 +210,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.addDockWidget(area, dock)
         return widget, dock
 
-    def connect(self, gateway_name: str) -> None:
+    def connect_gateway_dialog(self, gateway_name: str) -> None:
         """
         Open connect dialog for gateway connection.
         """
@@ -268,7 +244,7 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             event.ignore()
 
-    def open_widget(self, widget_class: QtWidgets.QWidget, name: str) -> None:
+    def open_widget(self, widget_class, name: str) -> None:
         """
         Open contract manager.
         """
@@ -296,7 +272,7 @@ class MainWindow(QtWidgets.QMainWindow):
         """
         settings: QtCore.QSettings = QtCore.QSettings(self.window_title, name)
         state = settings.value("state")
-        geometry = settings.value("geometry")
+        geometry: Union[PySide6.QtCore.QByteArray, bytes] = settings.value("geometry")
 
         if isinstance(state, QtCore.QByteArray):
             self.restoreState(state)
@@ -315,13 +291,12 @@ class MainWindow(QtWidgets.QMainWindow):
         """
         self.main_engine.send_email("VeighNa Trader", "testing")
 
-    def open_forum(self) -> None:
-        """
-        """
+    @staticmethod
+    def open_forum() -> None:
+        """ """
         webbrowser.open("https://www.vnpy.com/forum/")
 
     def edit_global_setting(self) -> None:
-        """
-        """
-        dialog: GlobalDialog = GlobalDialog()
+        """ """
+        dialog: GlobalDialog = GlobalDialog(parent=self)
         dialog.exec()

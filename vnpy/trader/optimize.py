@@ -142,7 +142,7 @@ def run_ga_optimization(
     buf: List[Dict] = optimization_setting.generate_settings()
     settings: List[Tuple] = [tuple(d.items()) for d in buf]
 
-    def generate_parameter() -> Sequence:
+    def generate_parameter() -> tuple:
         """"""
         return choice(settings)
 

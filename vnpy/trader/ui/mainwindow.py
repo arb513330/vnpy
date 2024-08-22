@@ -17,7 +17,9 @@ from ..engine import BaseApp, MainEngine
 from ..utility import TRADER_DIR, get_icon_path
 from .qt import QtCore, QtGui, QtWidgets
 from .widget import (AboutDialog, AccountMonitor, ActiveOrderMonitor, BaseMonitor, ConnectDialog, ContractManager,
-                     GlobalDialog, LogMonitor, OrderMonitor, PositionMonitor, TickMonitor, TradeMonitor, TradingWidget)
+                     GlobalDialog, LogMonitor, OrderMonitor, PositionMonitor, TickMonitor, TradeMonitor, TradingWidget,
+                    ModuleUpdateDialog
+                     )
 from ..locale import _
 
 
@@ -151,6 +153,13 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.add_action(
             help_menu,
+            _("更新模块"),
+            get_icon_path(__file__, "update_module.ico"),
+            partial(self.open_widget, ModuleUpdateDialog, "module_update"),
+        )
+
+        self.add_action(
+            help_menu,
             _("关于"),
             get_icon_path(__file__, "about.ico"),
             partial(self.open_widget, AboutDialog, "about"),
@@ -250,12 +259,13 @@ class MainWindow(QtWidgets.QMainWindow):
         """
         widget: QtWidgets.QWidget = self.widgets.get(name, None)
         if not widget:
-            widget = widget_class(self.main_engine, self.event_engine)
+            widget = widget_class(self.main_engine, self.event_engine, self)
             self.widgets[name] = widget
 
         if isinstance(widget, QtWidgets.QDialog):
             widget.exec()
         else:
+            widget.setWindowFlag(QtCore.Qt.Window)
             widget.show()
 
     def save_window_setting(self, name: str) -> None:

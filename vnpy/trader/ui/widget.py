@@ -2,14 +2,17 @@
 Basic widgets for UI.
 """
 
+import subprocess
+import threading
 import csv
 from datetime import datetime
 import platform
 from enum import Enum
-from typing import Any, Dict, List, Type, cast, Tuple
+from typing import Any, Dict, List, Type, cast, Tuple, Callable
 from copy import copy
 from tzlocal import get_localzone_name
 
+from importlib import import_module
 import importlib_metadata
 
 from .qt import QtCore, QtGui, QtWidgets
@@ -35,7 +38,7 @@ from ..object import (
     TickData,
 )
 from .utilities import QWIDGET_TYPE_MAPPING, RegisteredQWidgetType
-from ..utility import load_json, save_json, get_digits, ZoneInfo, encryptor
+from ..utility import load_json, save_json, get_digits, ZoneInfo, encryptor, get_remote_version
 from ..setting import SETTING_FILENAME, SETTINGS
 from ..locale import _
 
@@ -1177,6 +1180,166 @@ class ContractManager(QtWidgets.QWidget):
                 self.contract_table.setItem(row, column, cell)
 
         self.contract_table.resizeColumnsToContents()
+
+
+class UpdatingProgressBar(QtWidgets.QFrame):
+
+    def __init__(self, main_engine: MainEngine, app_name: str, parent=None):
+        super().__init__(parent)
+        self.main_engine: MainEngine = main_engine
+        self.app_name: str = app_name
+        self.error_flag = False
+        self.error_reason = ""
+        self.init_ui()
+
+    def init_ui(self):
+        self.setMaximumHeight(100)
+        self.progress_bar = QtWidgets.QProgressBar()
+        self.progress_bar.setRange(0, 0)
+        self.progress_bar.setValue(0)
+        self.progress_bar.setAlignment(QtCore.Qt.AlignCenter)
+        self.progress_bar.setTextVisible(True)
+        self.progress_bar.setStyleSheet(
+            "QProgressBar {text-align: center;} QProgressBar::chunk {background-color: #37a0f4;}"
+        )
+        self.label = QtWidgets.QLabel("初始化更新")
+        self.label.setAlignment(QtCore.Qt.AlignCenter)
+        vbox: QtWidgets.QVBoxLayout = QtWidgets.QVBoxLayout()
+        vbox.addWidget(self.label)
+        vbox.addWidget(self.progress_bar)
+        self.setLayout(vbox)
+
+    def _run_update(self, on_completed: Callable[["UpdatingProgressBar"], None] = None):
+        self.label.setText("更新中：卸载旧版本……")
+        app = self.main_engine.get_app(self.app_name)
+        if app:
+            self.main_engine.remove_app(self.app_name)
+            self.label.setText("更新中：获取新版本信息……")
+            app_module = import_module(app.app_module)
+            pip_url = f"{app_module.__name__}@git+{app_module.__git_url__}"
+            with subprocess.Popen(
+                ["python", "-m", "pip", "install", "--upgrade", pip_url],
+                    text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            ) as process:
+                for line in process.stdout:
+                    print(line)
+                    self.update_progress(line)
+                for line in process.stderr:
+                    if "ERROR" in line or "error" in line:
+                        print(line)
+                        self.error_flag = True
+                        self.error_reason += line
+                process.wait()
+            # self.progress_bar.setRange(0, 100)
+            # self.progress_bar.setValue(100)
+            if on_completed:
+                on_completed(self)
+            self.deleteLater()
+            print("Update Process Finished")
+            self.parent().update_progress = None
+
+    def run_update(self, on_completed: Callable[["UpdatingProgressBar"], None] = None):
+        thread = threading.Thread(target=self._run_update, args=(on_completed,))
+        thread.start()
+
+    def update_progress(self, line: str):
+        if "Collecting" in line:
+            self.label.setText("更新中：下载……")
+        if "dependen" in line or "Requirement" in line:
+            self.label.setText("更新中：安装依赖……")
+        if "Building wheels" in line:
+            self.label.setText("更新中：构建……")
+        if "Found existing installation" in line or "Uninstalling" in line:
+            self.label.setText("更新中：发现旧版本，卸载……")
+        if "Successfully installed" in line:
+            self.label.setText("更新完成")
+
+
+class ModuleUpdateDialog(QtWidgets.QWidget):
+
+    def __init__(self, main_engine: MainEngine, event_engine: EventEngine, parent=None) -> None:
+        """"""
+        super().__init__(parent)
+
+        self.main_engine: MainEngine = main_engine
+        self.event_engine: EventEngine = event_engine
+        self.row_mapping = {}
+        self.update_progress = None
+        self.init_ui()
+
+    def init_ui(self) -> None:
+        """"""
+        self.setWindowTitle(_("更新模块"))
+
+        self.modules_grid = QtWidgets.QTableWidget()
+        self.modules_grid.setFixedWidth(566)
+        self.modules_grid.setColumnCount(4)
+        self.modules_grid.setColumnWidth(0, 200)
+        self.modules_grid.setColumnWidth(1, 150)
+        self.modules_grid.setColumnWidth(2, 150)
+        self.modules_grid.setColumnWidth(3, 60)
+        self.modules_grid.setHorizontalHeaderLabels([_("模块"), _("本地版本"), _("最新版本"), ""])
+        self.modules_grid.setRowCount(0)
+        self.modules_grid.verticalHeader().setVisible(False)
+        self.modules_grid.setEditTriggers(QtWidgets.QTableWidget.NoEditTriggers)
+
+        for app in self.main_engine.get_all_apps():
+            row = self.modules_grid.rowCount()
+            self.modules_grid.insertRow(row)
+            self.row_mapping[app.app_name] = row
+            app_module = import_module(app.app_module)
+            cell_name = QtWidgets.QTableWidgetItem(app_module.__name__)
+            self.modules_grid.setItem(row, 0, cell_name)
+            cell_local = QtWidgets.QTableWidgetItem(app_module.__version__)
+            self.modules_grid.setItem(row, 1, cell_local)
+            if getattr(app_module, "__git_url__", None):
+                remote_version = get_remote_version(app_module.__git_url__)
+            else:
+                remote_version = ""
+            # if remote_version.startswith("v"):
+            #     remote_version = remote_version[1:]
+            cell_latest = QtWidgets.QTableWidgetItem(remote_version)
+            self.modules_grid.setItem(row, 2, cell_latest)
+
+            button = QtWidgets.QPushButton(_("更新"))
+            button.setObjectName(app.app_name)
+            button.setEnabled(remote_version and remote_version != app_module.__version__)
+            button.clicked.connect(self.update_module)
+            self.modules_grid.setCellWidget(row, 3, button)
+
+        self.vbox: QtWidgets.QVBoxLayout = QtWidgets.QVBoxLayout()
+        self.vbox.addWidget(self.modules_grid)
+
+        self.setLayout(self.vbox)
+
+    def set_button_status(self, row_num: int) -> None:
+        remote_version = self.modules_grid.item(row_num, 2).text()
+        local_version = self.modules_grid.item(row_num, 1).text()
+        if remote_version and remote_version != local_version and _("更新") not in local_version:
+            button = self.modules_grid.cellWidget(row_num, 3)
+            button.setEnabled(True)
+
+    def update_module(self):
+        sender = self.sender()
+        related_app_name = sender.objectName()
+        for row in range(self.modules_grid.rowCount()):
+            button = self.modules_grid.cellWidget(row, 3)
+            button.setEnabled(False)
+        self.update_progress = UpdatingProgressBar(self.main_engine, related_app_name, self)
+        self.vbox.insertWidget(0, self.update_progress)
+        QtWidgets.QApplication.processEvents()
+        self.update_progress.run_update(self.on_update_completed)
+
+    def on_update_completed(self, progressor: UpdatingProgressBar) -> None:
+        cell = self.modules_grid.item(self.row_mapping[progressor.app_name], 1)
+        if progressor.error_flag:
+            QtWidgets.QMessageBox.critical(self, _("更新失败"), progressor.error_reason + "\n")
+            cell.setText(_("更新失败，联系管理员修复。"))
+        else:
+            cell.setText(_("已更新，重启生效"))
+        for row in range(self.modules_grid.rowCount()):
+            self.set_button_status(row)
+        self.vbox.removeWidget(progressor)
 
 
 class AboutDialog(QtWidgets.QDialog):

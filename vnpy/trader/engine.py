@@ -109,6 +109,22 @@ class MainEngine:
         engine: BaseEngine = self.add_engine(app.engine_class)
         return engine
 
+    def get_app(self, app_name: str) -> BaseApp:
+        """
+        Get app object by name.
+        """
+        app: BaseApp = self.apps.get(app_name, None)
+        return app
+
+    def remove_app(self, app_name: str) -> None:
+        """
+        Remove app object by name.
+        """
+        app: BaseApp = self.apps.pop(app_name, None)
+        if app:
+            engine = self.engines.pop(app_name, None)
+            engine.close()
+
     def init_engines(self) -> None:
         """
         Init all engines.

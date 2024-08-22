@@ -2,6 +2,8 @@
 General utility functions.
 """
 
+import re
+import subprocess
 from enum import Enum
 import json
 import warnings
@@ -11,6 +13,7 @@ import keyring
 import sys
 from datetime import datetime, time, timedelta
 from pathlib import Path
+from types import ModuleType
 from typing import Callable, Dict, Tuple, Union, Optional, Sequence
 from decimal import Decimal
 from math import floor, ceil
@@ -304,8 +307,10 @@ class IntraDayTradingTime:
                 raise ValueError(f"Overlapping sessions: {sessions[i]}-{sessions[i + 1]}")
 
     def _cal_sessions_with_offset(
-        self,         start_offset: Union[Union[float, timedelta], Sequence[Union[float, timedelta]]],
-        end_offset: Union[Union[float, timedelta], Sequence[Union[float, timedelta]]], break_threshold_for_offest: Union[float, timedelta]
+        self,
+        start_offset: Union[Union[float, timedelta], Sequence[Union[float, timedelta]]],
+        end_offset: Union[Union[float, timedelta], Sequence[Union[float, timedelta]]],
+        break_threshold_for_offest: Union[float, timedelta],
     ) -> Sequence[Tuple[time, time]]:
         """"""
         sessions_with_offset = []
@@ -485,7 +490,6 @@ class BarGenerator:
 
             self.bar.volume += tick.last_volume
             self.bar.turnover += max(0.0, tick.turnover - self.last_tick.turnover) if self.last_tick else tick.turnover
-
 
         self.update_bar_minute_window(self.bar, new_minute)
 
@@ -1247,3 +1251,48 @@ def get_file_logger(filename: str, logformat_str: str = None) -> logging.Logger:
         handler.setFormatter(log_formatter)
     logger.addHandler(handler)  # each handler will be added only once.
     return logger
+
+
+def get_local_version(module: ModuleType) -> str:
+    return getattr(module, "__version__", "unknown")
+
+
+def get_remote_commit_hash(remote_url, tag="HEAD", short=False) -> str:
+    try:
+        result = subprocess.run(["git", "ls-remote", remote_url, "HEAD"], capture_output=True, text=True, check=True)
+        commit_hash = result.stdout.strip().split("\t")[0]
+        if short:
+            return commit_hash[:7]
+        return commit_hash
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError(f"Failed to get remote commit hash: {e.stderr}") from e
+
+
+def get_latest_tag_from_remote(remote_url) -> tuple[str, str]:
+    result = subprocess.run(["git", "ls-remote", "--tags", remote_url], capture_output=True, text=True, check=True)
+    tags = result.stdout.strip().split("\n")
+    if tags:
+        latest_tag = tags[-1].split("/")[-1].rstrip("^{}")
+        if latest_tag.startswith("v"):
+            latest_tag = latest_tag[1:]
+        return latest_tag, tags[-1].split("\t", 1)[0]
+    return "", ""
+
+
+def get_remote_version(remote_url, tag="HEAD", major=False) -> str:
+    latest_tag, tag_commit_hash = get_latest_tag_from_remote(remote_url)
+    if not bool(latest_tag):
+        return "0.0.0"
+    if major:
+        return latest_tag
+    try:
+        commit_hash = get_remote_commit_hash(remote_url, tag)
+    except RuntimeError:
+        commit_hash = "unknown"
+    if commit_hash == "":
+        commit_hash = "unknown"
+    if commit_hash == tag_commit_hash:
+        return latest_tag
+    match = re.match(r"(.*?)(\d+)$", latest_tag)
+    prefix, tail = match.groups()
+    return f"{prefix}{int(tail)+1}+git.{commit_hash[:7]}"

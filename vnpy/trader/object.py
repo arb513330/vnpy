@@ -93,6 +93,30 @@ class TickData(BaseData):
     def fullstr(self) -> str:
         return super().__str__()
 
+    def this_side_price(self, direction: Direction, level: int = 1) -> float:
+        if direction == Direction.LONG:
+            return getattr(self, f"bid_price_{level}")
+        else:
+            return getattr(self, f"ask_price_{level}")
+
+    def opposite_side_price(self, direction: Direction, level: int = 1) -> float:
+        if direction == Direction.LONG:
+            return getattr(self, f"ask_price_{level}")
+        else:
+            return getattr(self, f"bid_price_{level}")
+
+    def this_side_volume(self, direction: Direction, level: int = 1) -> float:
+        if direction == Direction.LONG:
+            return getattr(self, f"bid_volume_{level}")
+        else:
+            return getattr(self, f"ask_volume_{level}")
+
+    def opposite_side_volume(self, direction: Direction, level: int = 1) -> float:
+        if direction == Direction.LONG:
+            return getattr(self, f"ask_volume_{level}")
+        else:
+            return getattr(self, f"bid_volume_{level}")
+
 
 @dataclass
 class BarData(BaseData):

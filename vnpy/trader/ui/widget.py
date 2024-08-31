@@ -1204,7 +1204,8 @@ class UpdatingProgressBar(QtWidgets.QFrame):
             app_module = import_module(app.app_module)
             pip_url = f"{app_module.__name__}@git+{app_module.__git_url__}"
             with subprocess.Popen(
-                ["pip", "install", "--upgrade", pip_url], text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+                ["python", "-m", "pip", "install", "--upgrade", pip_url],
+                    text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
             ) as process:
                 for line in process.stdout:
                     print(line)

@@ -46,6 +46,7 @@ app_candidates = [
     "WebTrader",
     "PortfolioManager",
     "WZTDC",
+    "TradePanels",
 ]
 
 

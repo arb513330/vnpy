@@ -269,9 +269,6 @@ def setup_plain_logger(
     return logger
 
 
-logger = setup_plain_logger("utility", logging.INFO)
-
-
 class IntraDayTradingTime:
 
     class TimeInRange(Enum):
@@ -514,10 +511,8 @@ class BarGenerator:
         now_time = datetime.now(tz=ZoneInfo("Asia/Shanghai"))
 
         if abs((now_time - tick_time).total_seconds()) > 60:
-            logger.debug(f"Tick timestamp too far from now: {now_time.isoformat()}, tick time: {tick_time.isoformat()}")
             return -1
         if not self.trade_time:
-            logger.warning("No trading timerange provided!!!")
             return 1
 
         return self.trade_time.trading_time_in_session(tick_time).value

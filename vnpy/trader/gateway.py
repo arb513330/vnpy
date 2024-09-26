@@ -119,6 +119,7 @@ class BaseGateway(ABC):
         """
         self.on_event(EVENT_ORDER, order)
         self.on_event(EVENT_ORDER + order.vt_orderid, order)
+        self.on_event(EVENT_ORDER + order.vt_symbol, order)
 
     def on_position(self, position: PositionData) -> None:
         """

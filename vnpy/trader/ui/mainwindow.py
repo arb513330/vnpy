@@ -16,10 +16,11 @@ from vnpy.event import EventEngine
 from ..engine import BaseApp, MainEngine
 from ..utility import TRADER_DIR, get_icon_path
 from .qt import QtCore, QtGui, QtWidgets
-from .widget import (AboutDialog, AccountMonitor, ActiveOrderMonitor, BaseMonitor, ConnectDialog, ContractManager,
-                     GlobalDialog, LogMonitor, OrderMonitor, PositionMonitor, TickMonitor, TradeMonitor, TradingWidget,
-                    ModuleUpdateDialog
-                     )
+from .widget import (
+    AboutDialog, AccountMonitor, ActiveOrderMonitor, BaseMonitor, ConnectDialog, ContractManager,
+    GlobalDialog, LogMonitor, OrderMonitor, PositionMonitor, TickMonitor, TradeMonitor, TradingWidget,
+    ModuleUpdateDialog
+)
 from ..locale import _
 
 

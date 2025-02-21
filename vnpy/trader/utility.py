@@ -209,6 +209,7 @@ def get_digits(value: float) -> int:
     else:
         return 0
 
+
 def get_plain_log_file(filename) -> Path:
     """
     Get path for plain log file.
@@ -1290,4 +1291,4 @@ def get_remote_version(remote_url, tag="HEAD", major=False) -> str:
         return latest_tag
     match = re.match(r"(.*?)(\d+)$", latest_tag)
     prefix, tail = match.groups()
-    return f"{prefix}{int(tail)+1}+git.{commit_hash[:7]}"
+    return f"{prefix}{int(tail) + 1}+git.{commit_hash[:7]}"

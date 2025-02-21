@@ -26,6 +26,7 @@ from ..event import (
     EVENT_POSITION,
     EVENT_ACCOUNT,
     EVENT_LOG,
+    EVENT_GATEWAY_CONNECTED,
 )
 from ..object import (
     OrderRequest,
@@ -636,11 +637,14 @@ class ConnectDialog(QtWidgets.QDialog):
                     except Exception:
                         field_value = ""
 
-            widget.setText(str(field_value))
-            if isinstance(field_value, int):
-                cast(QtWidgets.QLineEdit, widget).setValidator(QtGui.QIntValidator())
-            elif isinstance(field_value, float):
-                cast(QtWidgets.QLineEdit, widget).setValidator(QtGui.QDoubleValidator())
+            if field_type == RegisteredQWidgetType.GW_CHECKBOX:
+                cast(QtWidgets.QCheckBox, widget).setChecked(field_value)
+            else:
+                widget.setText(str(field_value))
+                if isinstance(field_value, int):
+                    cast(QtWidgets.QLineEdit, widget).setValidator(QtGui.QIntValidator())
+                elif isinstance(field_value, float):
+                    cast(QtWidgets.QLineEdit, widget).setValidator(QtGui.QDoubleValidator())
 
             form.addRow(f"{field_name} <{field_type.value}>", widget)
             self.widgets[field_name] = (widget, field_type)
@@ -693,6 +697,8 @@ class ConnectDialog(QtWidgets.QDialog):
             widget, field_type = tp
             if field_type == RegisteredQWidgetType.GW_COMBOBOX:
                 field_value = str(widget.currentText())
+            elif field_type == RegisteredQWidgetType.GW_CHECKBOX:
+                field_value = widget.isChecked()
             else:
                 try:
                     field_value = type(field_type.value)(widget.text())
@@ -721,6 +727,7 @@ class TradingWidget(QtWidgets.QWidget):
     """
 
     signal_tick: QtCore.Signal = QtCore.Signal(Event)
+    signal_gw_connected: QtCore.Signal = QtCore.Signal(Event)
 
     def __init__(self, main_engine: MainEngine, event_engine: EventEngine) -> None:
         """"""
@@ -881,6 +888,8 @@ class TradingWidget(QtWidgets.QWidget):
         """"""
         self.signal_tick.connect(self.process_tick_event)
         self.event_engine.register(EVENT_TICK, self.signal_tick.emit)
+        self.signal_gw_connected.connect(self.process_gw_connected_event)
+        self.event_engine.register(EVENT_GATEWAY_CONNECTED, self.signal_gw_connected.emit)
 
     def process_tick_event(self, event: Event) -> None:
         """"""
@@ -923,6 +932,16 @@ class TradingWidget(QtWidgets.QWidget):
 
         if self.price_check.isChecked():
             self.price_line.setText(f"{tick.last_price:.{price_digits}f}")
+
+    def process_gw_connected_event(self, event: Event):
+        """"""
+        if event:
+            gw_name = event.data
+            gw = self.main_engine.get_gateway(gw_name)
+            if gw:
+                exchanges_in_combo = [self.exchange_combo.itemText(i) for i in range(self.exchange_combo.count())]
+                new_exchanges = [exchange.value for exchange in gw.exchanges if exchange.value not in exchanges_in_combo]
+                self.exchange_combo.addItems(new_exchanges)
 
     def set_vt_symbol(self) -> None:
         """

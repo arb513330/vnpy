@@ -19,6 +19,7 @@ class RegisteredQWidgetType(Enum):
     GW_COMBOBOX = "list"
     GW_INTBOX = "int"
     GW_FLOATBOX = "float"
+    GW_CHECKBOX = "bool"
 
 
 class VNPasswordField(QtWidgets.QFrame):
@@ -59,6 +60,7 @@ QWIDGET_TYPE_MAPPING = {
     RegisteredQWidgetType.GW_FLOATBOX: QtWidgets.QLineEdit,
     RegisteredQWidgetType.GW_PASSWORDBOX: VNPasswordField,
     RegisteredQWidgetType.GW_COMBOBOX: QtWidgets.QComboBox,
+    RegisteredQWidgetType.GW_CHECKBOX: QtWidgets.QCheckBox,
 }
 
 

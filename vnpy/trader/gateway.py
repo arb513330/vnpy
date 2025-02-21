@@ -89,11 +89,11 @@ class BaseGateway(ABC):
         self.event_engine: EventEngine = event_engine
         self.gateway_name: str = gateway_name
 
-    def on_event(self, type: str, data: Any = None) -> None:
+    def on_event(self, etype: str, data: Any = None) -> None:
         """
         General event push.
         """
-        event: Event = Event(type, data)
+        event: Event = Event(etype, data)
         self.event_engine.put(event)
 
     def on_tick(self, tick: TickData) -> None:
@@ -308,7 +308,7 @@ class LocalOrderManager:
         self.push_data_buf: Dict[str, Dict] = {}  # sys_orderid: data
 
         # Callback for processing push order data
-        self.push_data_callback: Callable = None
+        self.push_data_callback: Optional[Callable] = None
 
         # Cancel request buf
         self.cancel_request_buf: Dict[str, CancelRequest] = {}  # local_orderid: req

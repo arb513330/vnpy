@@ -27,7 +27,8 @@ gw_candidates = [
     "Tts",
     "Ost",
     "Gtja",
-    "Xt"
+    "Xt",
+    "XtRedisOrder",
 ]
 app_candidates = [
     "PaperAccount",

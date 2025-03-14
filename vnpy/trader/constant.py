@@ -29,6 +29,16 @@ class Direction(VNBaseEnum):
             return Direction.LONG
         return Direction.NET
 
+    def __neg__(self):
+        return self.opposite()
+
+    def __mul__(self, other):
+        if isinstance(other, (float, int)) and other < 0 or other == Direction.SHORT:
+            return self.opposite()
+        if other == 0:
+            return Direction.NET
+        return self
+
 
 class Offset(VNBaseEnum):
     """

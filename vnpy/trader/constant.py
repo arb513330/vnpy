@@ -63,6 +63,7 @@ class Status(VNBaseEnum):
     ALLTRADED = _("全部成交")
     CANCELLED = _("已撤销")
     REJECTED = _("拒单")
+    UNKNOWN = _("未知")
 
     def is_active(self):
         return self in [Status.SUBMITTING, Status.NOTTRADED, Status.PARTTRADED]
@@ -99,6 +100,7 @@ class OrderType(VNBaseEnum):
     FAK = "FAK"
     FOK = "FOK"
     RFQ = _("询价")
+    UNKNOWN = _("未知")
 
 
 class OptionType(VNBaseEnum):

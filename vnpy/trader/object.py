@@ -7,6 +7,7 @@ from dataclasses import dataclass, field, asdict
 from datetime import datetime as datetimetype
 from logging import INFO
 from typing import Optional
+from decimal import Decimal
 
 from .constant import Direction, Exchange, Interval, Offset, Status, Product, OptionType, OrderType
 
@@ -300,6 +301,19 @@ class ContractData(BaseData):
     def __post_init__(self) -> None:
         """"""
         self.vt_symbol: str = f"{self.symbol}.{self.exchange.value}"
+
+    def round_price(self, price: float) -> float:
+        """
+        Round price to the nearest tick.
+        """
+        return round(price / self.pricetick) * self.pricetick
+
+    def round_volume(self, volume: float) -> float:
+        """
+        Round volume to the nearest integer.
+        """
+        return round(volume / self.min_volume) * self.min_volume
+
 
 
 @dataclass

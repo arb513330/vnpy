@@ -5,17 +5,15 @@ Basic widgets for UI.
 import subprocess
 import threading
 import csv
-from datetime import datetime
 import platform
 from enum import Enum
-from typing import Any, Dict, List, Type, cast, Tuple, Callable
+from typing import cast, Any, Callable
 from copy import copy
 from tzlocal import get_localzone_name
+from datetime import datetime
+from importlib import metadata, import_module
 
-from importlib import import_module
-import importlib_metadata
-
-from .qt import QtCore, QtGui, QtWidgets
+from .qt import QtCore, QtGui, QtWidgets, Qt
 from ..constant import Direction, Exchange, Offset, OrderType
 from ..engine import MainEngine, Event, EventEngine
 from ..event import (
@@ -59,15 +57,22 @@ class BaseCell(QtWidgets.QTableWidgetItem):
     def __init__(self, content: Any, data: Any) -> None:
         """"""
         super().__init__()
+
+        self._text: str = ""
+        self._data: Any = None
+
         self.setTextAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+
         self.set_content(content, data)
 
     def set_content(self, content: Any, data: Any) -> None:
         """
         Set text content.
         """
-        self.setText(str(content))
+        self._text = str(content)
         self._data = data
+
+        self.setText(self._text)
 
     def get_data(self) -> Any:
         """
@@ -75,11 +80,22 @@ class BaseCell(QtWidgets.QTableWidgetItem):
         """
         return self._data
 
+    def __lt__(self, other: "BaseCell") -> bool:        # type: ignore
+        """
+        Sort by text content.
+        """
+        result: bool = self._text < other._text
+        return result
+
 
 class EnumCell(BaseCell):
     """
     Cell used for showing enum data.
     """
+
+    def __init__(self, content: Enum, data: Any) -> None:
+        """"""
+        super().__init__(content, data)
 
     def set_content(self, content: Any, data: Any) -> None:
         """
@@ -93,6 +109,11 @@ class DirectionCell(EnumCell):
     """
     Cell used for showing direction data.
     """
+
+    def __init__(self, content: str, data: Any) -> None:
+        """"""
+        super().__init__(content, data)
+
     def set_content(self, content: Any, data: Any) -> None:
         """
         Cell color is set according to direction.
@@ -215,7 +236,7 @@ class BaseMonitor(QtWidgets.QTableWidget):
 
         self.main_engine: MainEngine = main_engine
         self.event_engine: EventEngine = event_engine
-        self.cells: Dict[str, dict] = {}
+        self.cells: dict[str, dict] = {}
 
         self.init_ui()
         self.load_setting()
@@ -348,7 +369,7 @@ class BaseMonitor(QtWidgets.QTableWidget):
 
                 row_data: list = []
                 for column in range(self.columnCount()):
-                    item: QtWidgets.QTableWidgetItem = self.item(row, column)
+                    item: QtWidgets.QTableWidgetItem | None = self.item(row, column)
                     if item:
                         row_data.append(str(item.text()))
                     else:
@@ -550,7 +571,7 @@ class QuoteMonitor(BaseMonitor):
         "gateway_name": {"display": _("接口"), "cell": BaseCell, "update": False},
     }
 
-    def init_ui(self):
+    def init_ui(self) -> None:
         """
         Connect signal.
         """
@@ -581,7 +602,7 @@ class ConnectDialog(QtWidgets.QDialog):
         self.gateway_name: str = gateway_name
         self.filename: str = f"connect_{gateway_name.lower()}.json"
 
-        self.widgets: Dict[str, Tuple[QtWidgets.QWidget, RegisteredQWidgetType]] = {}
+        self.widgets: Dict[str, tuple[QtWidgets.QWidget, RegisteredQWidgetType]] = {}
 
         self.saved_settings: dict = {}
         self.default_setting: dict = self.main_engine.get_default_setting(self.gateway_name)
@@ -747,7 +768,7 @@ class TradingWidget(QtWidgets.QWidget):
         self.setFixedWidth(300)
 
         # Trading function area
-        exchanges: List[Exchange] = self.main_engine.get_all_exchanges()
+        exchanges: list[Exchange] = self.main_engine.get_all_exchanges()
         self.exchange_combo: QtWidgets.QComboBox = QtWidgets.QComboBox()
         self.exchange_combo.addItems([exchange.value for exchange in exchanges])
 
@@ -960,7 +981,7 @@ class TradingWidget(QtWidgets.QWidget):
         self.vt_symbol = vt_symbol
 
         # Update name line widget and clear all labels
-        contract: ContractData = self.main_engine.get_contract(vt_symbol)
+        contract: ContractData | None = self.main_engine.get_contract(vt_symbol)
         if not contract:
             self.name_line.setText("")
             gateway_name: str = self.gateway_combo.currentText()
@@ -1032,7 +1053,7 @@ class TradingWidget(QtWidgets.QWidget):
 
         price_text: str = str(self.price_line.text())
         if not price_text:
-            price = 0
+            price: float = 0
         else:
             price = float(price_text)
 
@@ -1055,7 +1076,7 @@ class TradingWidget(QtWidgets.QWidget):
         """
         Cancel all active orders.
         """
-        order_list: List[OrderData] = self.main_engine.get_all_active_orders()
+        order_list: list[OrderData] = self.main_engine.get_all_active_orders()
         for order in order_list:
             req: CancelRequest = order.create_cancel_request()
             self.main_engine.cancel_order(req, order.gateway_name)
@@ -1090,7 +1111,7 @@ class ActiveOrderMonitor(OrderMonitor):
     Monitor which shows active order only.
     """
 
-    def process_event(self, event) -> None:
+    def process_event(self, event: Event) -> None:
         """
         Hides the row if order is not active.
         """
@@ -1111,7 +1132,7 @@ class ContractManager(QtWidgets.QWidget):
     Query contract data available to trade in system.
     """
 
-    headers: Dict[str, str] = {
+    headers: dict[str, str] = {
         "vt_symbol": _("本地代码"),
         "symbol": _("代码"),
         "exchange": _("交易所"),
@@ -1174,18 +1195,18 @@ class ContractManager(QtWidgets.QWidget):
         """
         flt: str = str(self.filter_line.text())
 
-        all_contracts: List[ContractData] = self.main_engine.get_all_contracts()
+        all_contracts: list[ContractData] = self.main_engine.get_all_contracts()
         if flt:
-            contracts: List[ContractData] = [contract for contract in all_contracts if flt in contract.vt_symbol]
+            contracts: list[ContractData] = [contract for contract in all_contracts if flt in contract.vt_symbol]
         else:
-            contracts: List[ContractData] = all_contracts
+            contracts = all_contracts
 
         self.contract_table.clearContents()
         self.contract_table.setRowCount(len(contracts))
 
         for row, contract in enumerate(contracts):
             for column, name in enumerate(self.headers.keys()):
-                value: object = getattr(contract, name)
+                value: Any = getattr(contract, name)
 
                 if value in {None, 0}:
                     value = ""
@@ -1394,9 +1415,9 @@ class AboutDialog(QtWidgets.QDialog):
 
             VeighNa - {vnpy_version}
             Python - {platform.python_version()}
-            PySide6 - {importlib_metadata.version("pyside6")}
-            NumPy - {importlib_metadata.version("numpy")}
-            pandas - {importlib_metadata.version("pandas")}
+            PySide6 - {metadata.version("pyside6")}
+            NumPy - {metadata.version("numpy")}
+            pandas - {metadata.version("pandas")}
             """
 
         label: QtWidgets.QLabel = QtWidgets.QLabel()

@@ -4,11 +4,11 @@ import sys
 import traceback
 import webbrowser
 from types import TracebackType
-from typing import Type
 import threading
 
-import qdarkstyle
+import qdarkstyle  # type: ignore
 from PySide6 import QtGui, QtWidgets, QtCore
+from loguru import logger
 
 from ..setting import SETTINGS
 from ..utility import get_icon_path
@@ -16,10 +16,6 @@ from ..locale import _
 
 
 Qt = QtCore.Qt
-QtCore.pyqtSignal = QtCore.Signal
-QtWidgets.QAction = QtGui.QAction
-QtCore.QDate.toPyDate = QtCore.QDate.toPython
-QtCore.QDateTime.toPyDate = QtCore.QDateTime.toPython
 
 
 def create_qapp(app_name: str = "VeighNa Trader") -> QtWidgets.QApplication:
@@ -42,31 +38,29 @@ def create_qapp(app_name: str = "VeighNa Trader") -> QtWidgets.QApplication:
     if "Windows" in platform.uname():
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(app_name)
 
-    # Hide help button for all dialogs
-    # qapp.setAttribute(QtCore.Qt.AA_DisableWindowContextHelpButton)
-
     # Exception Handling
     exception_widget: ExceptionWidget = ExceptionWidget()
 
-    def excepthook(exctype: Type[BaseException], value: Exception, tb: TracebackType) -> None:
+    def excepthook(exc_type: type[BaseException], exc_value: BaseException, exc_traceback: TracebackType | None) -> None:
         """Show exception detail with QMessageBox."""
-        sys.__excepthook__(exctype, value, tb)
+        logger.opt(exception=(exc_type, exc_value, exc_traceback)).error("Main thread exception")
+        sys.__excepthook__(exc_type, exc_value, exc_traceback)
 
-        msg: str = "".join(traceback.format_exception(exctype, value, tb))
+        msg: str = "".join(traceback.format_exception(exc_type, exc_value, exc_traceback))
         exception_widget.signal.emit(msg)
 
     sys.excepthook = excepthook
 
-    if sys.version_info >= (3, 8):
-
-        def threading_excepthook(args: threading.ExceptHookArgs) -> None:
-            """Show exception detail from background threads with QMessageBox."""
+    def threading_excepthook(args: threading.ExceptHookArgs) -> None:
+        """Show exception detail from background threads with QMessageBox."""
+        if args.exc_value and args.exc_traceback:
+            logger.opt(exception=(args.exc_type, args.exc_value, args.exc_traceback)).error("Background thread exception")
             sys.__excepthook__(args.exc_type, args.exc_value, args.exc_traceback)
 
-            msg: str = "".join(traceback.format_exception(args.exc_type, args.exc_value, args.exc_traceback))
-            exception_widget.signal.emit(msg)
+        msg: str = "".join(traceback.format_exception(args.exc_type, args.exc_value, args.exc_traceback))
+        exception_widget.signal.emit(msg)
 
-        threading.excepthook = threading_excepthook
+    threading.excepthook = threading_excepthook
 
     return qapp
 
@@ -76,7 +70,7 @@ class ExceptionWidget(QtWidgets.QWidget):
 
     signal: QtCore.Signal = QtCore.Signal(str)
 
-    def __init__(self, parent: QtWidgets.QWidget = None) -> None:
+    def __init__(self, parent: QtWidgets.QWidget | None = None) -> None:
         """"""
         super().__init__(parent)
 

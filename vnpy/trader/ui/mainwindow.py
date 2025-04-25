@@ -6,22 +6,24 @@ from types import ModuleType
 import webbrowser
 from functools import partial
 from importlib import import_module
-from typing import Callable, Dict, List, Tuple, Union
-
+from typing import TypeVar
+from collections.abc import Callable
 import PySide6
-
 import vnpy
 from vnpy.event import EventEngine
 
-from ..engine import BaseApp, MainEngine
-from ..utility import TRADER_DIR, get_icon_path
 from .qt import QtCore, QtGui, QtWidgets
 from .widget import (
     AboutDialog, AccountMonitor, ActiveOrderMonitor, BaseMonitor, ConnectDialog, ContractManager,
     GlobalDialog, LogMonitor, OrderMonitor, PositionMonitor, TickMonitor, TradeMonitor, TradingWidget,
     ModuleUpdateDialog
 )
+from ..engine import MainEngine, BaseApp
+from ..utility import get_icon_path, TRADER_DIR
 from ..locale import _
+
+
+WidgetType = TypeVar("WidgetType", bound="QtWidgets.QWidget")
 
 
 class MainWindow(QtWidgets.QMainWindow):
@@ -38,8 +40,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.window_title: str = _("VeighNa Trader 社区版 - {}   [{}]").format(vnpy.__version__, TRADER_DIR)
 
-        self.widgets: Dict[str, QtWidgets.QWidget] = {}
-        self.monitors: Dict[str, BaseMonitor] = {}
+        self.widgets: dict[str, QtWidgets.QWidget] = {}
+        self.monitors: dict[str, BaseMonitor] = {}
 
         self.init_ui()
 
@@ -105,12 +107,12 @@ class MainWindow(QtWidgets.QMainWindow):
         # App menu
         app_menu: QtWidgets.QMenu = bar.addMenu(_("功能"))
 
-        all_apps: List[BaseApp] = self.main_engine.get_all_apps()
+        all_apps: list[BaseApp] = self.main_engine.get_all_apps()
         for app in all_apps:
             ui_module: ModuleType = import_module(app.app_module + ".ui")
-            widget_class: QtWidgets.QWidget = getattr(ui_module, app.widget_name)
+            widget_class: type[QtWidgets.QWidget] = getattr(ui_module, app.widget_name)
 
-            func: Callable = partial(self.open_widget, widget_class, app.app_name)
+            func = partial(self.open_widget, widget_class, app.app_name)
 
             self.add_action(app_menu, app.display_name, app.icon_name, func, True)
 
@@ -179,7 +181,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.toolbar.setIconSize(size)
 
         # Set button spacing
-        self.toolbar.layout().setSpacing(10)
+        layout: QtWidgets.QLayout | None = self.toolbar.layout()
+        if layout:
+            layout.setSpacing(10)
 
         self.addToolBar(QtCore.Qt.ToolBarArea.LeftToolBarArea, self.toolbar)
 
@@ -204,12 +208,12 @@ class MainWindow(QtWidgets.QMainWindow):
             self.toolbar.addAction(action)
 
     def create_dock(
-        self, widget_class, name: str, area
+        self, widget_class: type[WidgetType], name: str, area: QtCore.Qt.DockWidgetArea
     ) -> Tuple[QtWidgets.QWidget, QtWidgets.QDockWidget]:
         """
         Initialize a dock widget.
         """
-        widget: QtWidgets.QWidget = widget_class(self.main_engine, self.event_engine)
+        widget: WidgetType = widget_class(self.main_engine, self.event_engine)      # type: ignore
         if isinstance(widget, BaseMonitor):
             self.monitors[name] = widget
 
@@ -254,11 +258,11 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             event.ignore()
 
-    def open_widget(self, widget_class, name: str) -> None:
+    def open_widget(self, widget_class: type[QtWidgets.QWidget], name: str) -> None:
         """
         Open contract manager.
         """
-        widget: QtWidgets.QWidget = self.widgets.get(name, None)
+        widget: QtWidgets.QWidget | None = self.widgets.get(name, None)
         if not widget:
             widget = widget_class(self.main_engine, self.event_engine, self)
             self.widgets[name] = widget
@@ -300,7 +304,7 @@ class MainWindow(QtWidgets.QMainWindow):
         """
         Sending a test email.
         """
-        self.main_engine.send_email("VeighNa Trader", "testing")
+        self.main_engine.send_email("VeighNa Trader", "testing", None)
 
     @staticmethod
     def open_forum() -> None:

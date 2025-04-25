@@ -39,3 +39,5 @@ _templates
 *.mo
 
 *.log
+# Alpha
+lab/

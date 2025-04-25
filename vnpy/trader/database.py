@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
 from datetime import datetime
 from types import ModuleType
-from typing import List, Optional
 from dataclasses import dataclass
 from importlib import import_module
 
@@ -19,7 +18,7 @@ def convert_tz(dt: datetime) -> datetime:
     """
     Convert timezone of datetime object to DB_TZ.
     """
-    dt: datetime = dt.astimezone(DB_TZ)
+    dt = dt.astimezone(DB_TZ)
     return dt.replace(tzinfo=None)
 
 
@@ -30,11 +29,11 @@ class BarOverview:
     """
 
     symbol: str = ""
-    exchange: Exchange = None
-    interval: Interval = None
+    exchange: Exchange | None = None
+    interval: Interval | None = None
     count: int = 0
-    start: datetime = None
-    end: datetime = None
+    start: datetime | None = None
+    end: datetime | None = None
 
 
 @dataclass
@@ -44,10 +43,10 @@ class TickOverview:
     """
 
     symbol: str = ""
-    exchange: Exchange = None
+    exchange: Exchange | None = None
     count: int = 0
-    start: datetime = None
-    end: datetime = None
+    start: datetime | None = None
+    end: datetime | None = None
 
 
 class BaseDatabase(ABC):
@@ -56,13 +55,13 @@ class BaseDatabase(ABC):
     """
 
     @abstractmethod
-    def save_bar_data(self, bars: List[BarData], stream: bool = False) -> bool:
+    def save_bar_data(self, bars: list[BarData], stream: bool = False) -> bool:
         """
         Save bar data into database.
         """
 
     @abstractmethod
-    def save_tick_data(self, ticks: List[TickData], stream: bool = False) -> bool:
+    def save_tick_data(self, ticks: list[TickData], stream: bool = False) -> bool:
         """
         Save tick data into database.
         """
@@ -75,7 +74,7 @@ class BaseDatabase(ABC):
         interval: Interval,
         start: datetime,
         end: datetime
-    ) -> List[BarData]:
+    ) -> list[BarData]:
         """
         Load bar data from database.
         """
@@ -87,7 +86,7 @@ class BaseDatabase(ABC):
         exchange: Exchange,
         start: datetime,
         end: datetime
-    ) -> List[TickData]:
+    ) -> list[TickData]:
         """
         Load tick data from database.
         """
@@ -114,19 +113,19 @@ class BaseDatabase(ABC):
         """
 
     @abstractmethod
-    def get_bar_overview(self) -> List[BarOverview]:
+    def get_bar_overview(self) -> list[BarOverview]:
         """
         Return bar data avaible in database.
         """
 
     @abstractmethod
-    def get_tick_overview(self) -> List[TickOverview]:
+    def get_tick_overview(self) -> list[TickOverview]:
         """
         Return tick data avaible in database.
         """
 
 
-database: Optional[BaseDatabase] = None
+database: BaseDatabase | None = None
 
 
 def get_database() -> BaseDatabase:

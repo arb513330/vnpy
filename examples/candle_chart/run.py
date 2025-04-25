@@ -15,7 +15,7 @@ if __name__ == "__main__":
         Exchange.CFFEX,
         interval=Interval.MINUTE,
         start=datetime(2019, 7, 1),
-        end=datetime(2019, 7, 17)
+        end=datetime(2019, 7, 17),
     )
 
     widget = ChartWidget()
@@ -31,7 +31,7 @@ if __name__ == "__main__":
 
     widget.update_history(history)
 
-    def update_bar():
+    def update_bar() -> None:
         bar = new_data.pop(0)
         widget.update_bar(bar)
 

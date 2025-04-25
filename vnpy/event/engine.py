@@ -4,10 +4,11 @@ Event-driven framework of VeighNa framework.
 
 import logging
 from collections import defaultdict
+from collections.abc import Callable
 from queue import Empty, Queue
 from threading import Thread
 from time import sleep
-from typing import Any, Callable, List
+from typing import Any
 from ..trader.utility import setup_plain_logger
 
 
@@ -30,7 +31,7 @@ class Event:
 
 
 # Defines handler function to be used in event engine.
-HandlerType: callable = Callable[[Event], None]
+HandlerType = Callable[[Event], None]
 
 
 class EventEngine:
@@ -53,7 +54,7 @@ class EventEngine:
         self._thread: Thread = Thread(target=self._run)
         self._timer: Thread = Thread(target=self._run_timer)
         self._handlers: defaultdict = defaultdict(list)
-        self._general_handlers: List = []
+        self._general_handlers: list = []
 
     def _run(self) -> None:
         """

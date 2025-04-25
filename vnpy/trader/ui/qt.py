@@ -4,11 +4,11 @@ import sys
 import traceback
 import webbrowser
 from types import TracebackType
-from typing import Type
 import threading
 
-import qdarkstyle
+import qdarkstyle  # type: ignore
 from PySide6 import QtGui, QtWidgets, QtCore
+from loguru import logger
 
 from ..setting import SETTINGS
 from ..utility import get_icon_path
@@ -16,10 +16,6 @@ from ..locale import _
 
 
 Qt = QtCore.Qt
-QtCore.pyqtSignal = QtCore.Signal
-QtWidgets.QAction = QtGui.QAction
-QtCore.QDate.toPyDate = QtCore.QDate.toPython
-QtCore.QDateTime.toPyDate = QtCore.QDateTime.toPython
 
 
 def create_qapp(app_name: str = "VeighNa Trader") -> QtWidgets.QApplication:
@@ -42,31 +38,43 @@ def create_qapp(app_name: str = "VeighNa Trader") -> QtWidgets.QApplication:
     if "Windows" in platform.uname():
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(app_name)
 
-    # Hide help button for all dialogs
-    # qapp.setAttribute(QtCore.Qt.AA_DisableWindowContextHelpButton)
-
     # Exception Handling
     exception_widget: ExceptionWidget = ExceptionWidget()
 
-    def excepthook(exctype: Type[BaseException], value: Exception, tb: TracebackType) -> None:
+    def excepthook(
+        exc_type: type[BaseException],
+        exc_value: BaseException,
+        exc_traceback: TracebackType | None,
+    ) -> None:
         """Show exception detail with QMessageBox."""
-        sys.__excepthook__(exctype, value, tb)
+        logger.opt(exception=(exc_type, exc_value, exc_traceback)).error(
+            "Main thread exception"
+        )
+        sys.__excepthook__(exc_type, exc_value, exc_traceback)
 
-        msg: str = "".join(traceback.format_exception(exctype, value, tb))
+        msg: str = "".join(
+            traceback.format_exception(exc_type, exc_value, exc_traceback)
+        )
         exception_widget.signal.emit(msg)
 
     sys.excepthook = excepthook
 
-    if sys.version_info >= (3, 8):
-
-        def threading_excepthook(args: threading.ExceptHookArgs) -> None:
-            """Show exception detail from background threads with QMessageBox."""
+    def threading_excepthook(args: threading.ExceptHookArgs) -> None:
+        """Show exception detail from background threads with QMessageBox."""
+        if args.exc_value and args.exc_traceback:
+            logger.opt(
+                exception=(args.exc_type, args.exc_value, args.exc_traceback)
+            ).error("Background thread exception")
             sys.__excepthook__(args.exc_type, args.exc_value, args.exc_traceback)
 
-            msg: str = "".join(traceback.format_exception(args.exc_type, args.exc_value, args.exc_traceback))
-            exception_widget.signal.emit(msg)
+        msg: str = "".join(
+            traceback.format_exception(
+                args.exc_type, args.exc_value, args.exc_traceback
+            )
+        )
+        exception_widget.signal.emit(msg)
 
-        threading.excepthook = threading_excepthook
+    threading.excepthook = threading_excepthook
 
     return qapp
 
@@ -76,7 +84,7 @@ class ExceptionWidget(QtWidgets.QWidget):
 
     signal: QtCore.Signal = QtCore.Signal(str)
 
-    def __init__(self, parent: QtWidgets.QWidget = None) -> None:
+    def __init__(self, parent: QtWidgets.QWidget | None = None) -> None:
         """"""
         super().__init__(parent)
 
@@ -131,29 +139,44 @@ class GatewayAppSelectPanel(QtWidgets.QDialog):
     checkbox_values_signal = QtCore.Signal(dict)
 
     def __init__(
-        self, parent=None, available_gateways=None, available_apps=None, selected_gateways=(), selected_apps=()
+        self,
+        parent=None,
+        available_gateways=None,
+        available_apps=None,
+        selected_gateways=(),
+        selected_apps=(),
     ):
         super().__init__(parent)
 
         import importlib.util  # pylint: disable=import-outside-toplevel
 
         available_gateways = [
-            gw for gw in available_gateways if importlib.util.find_spec(f"vnpy_{gw.lower()}") is not None
+            gw
+            for gw in available_gateways
+            if importlib.util.find_spec(f"vnpy_{gw.lower()}") is not None
         ]
-        available_apps = [app for app in available_apps if importlib.util.find_spec(f"vnpy_{app.lower()}") is not None]
+        available_apps = [
+            app
+            for app in available_apps
+            if importlib.util.find_spec(f"vnpy_{app.lower()}") is not None
+        ]
 
         self.setWindowTitle("选择接口和应用")
 
         # Create first group box
         self.groupBox1 = QtWidgets.QGroupBox("接口", self)
         layout1 = QtWidgets.QGridLayout()
-        self.checkboxes1 = self.create_checkboxes(layout1, names=available_gateways, selected=selected_gateways)
+        self.checkboxes1 = self.create_checkboxes(
+            layout1, names=available_gateways, selected=selected_gateways
+        )
         self.groupBox1.setLayout(layout1)
 
         # Create second group box
         self.groupBox2 = QtWidgets.QGroupBox("应用", self)
         layout2 = QtWidgets.QGridLayout()
-        self.checkboxes2 = self.create_checkboxes(layout2, names=available_apps, selected=selected_apps)
+        self.checkboxes2 = self.create_checkboxes(
+            layout2, names=available_apps, selected=selected_apps
+        )
         self.groupBox2.setLayout(layout2)
 
         self.ok_button = QtWidgets.QPushButton("确定", self)
@@ -186,8 +209,12 @@ class GatewayAppSelectPanel(QtWidgets.QDialog):
 
     def get_checkbox_values(self):
         return {
-            "gateways": [checkbox.text() for checkbox in self.checkboxes1 if checkbox.isChecked()],
-            "apps": [checkbox.text() for checkbox in self.checkboxes2 if checkbox.isChecked()],
+            "gateways": [
+                checkbox.text() for checkbox in self.checkboxes1 if checkbox.isChecked()
+            ],
+            "apps": [
+                checkbox.text() for checkbox in self.checkboxes2 if checkbox.isChecked()
+            ],
         }
 
     def emit_checkbox_values(self):

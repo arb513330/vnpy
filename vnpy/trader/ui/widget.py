@@ -5,17 +5,16 @@ Basic widgets for UI.
 import subprocess
 import threading
 import csv
-from datetime import datetime
 import platform
 from enum import Enum
-from typing import Any, Dict, List, Type, cast, Tuple, Callable
+from typing import cast, Any
+from collections.abc import Callable
 from copy import copy
 from tzlocal import get_localzone_name
+from datetime import datetime
+from importlib import metadata, import_module
 
-from importlib import import_module
-import importlib_metadata
-
-from .qt import QtCore, QtGui, QtWidgets
+from .qt import QtCore, QtGui, QtWidgets, Qt
 from ..constant import Direction, Exchange, Offset, OrderType
 from ..engine import MainEngine, Event, EventEngine
 from ..event import (
@@ -39,7 +38,14 @@ from ..object import (
     TickData,
 )
 from .utilities import QWIDGET_TYPE_MAPPING, RegisteredQWidgetType
-from ..utility import load_json, save_json, get_digits, ZoneInfo, encryptor, get_remote_version
+from ..utility import (
+    load_json,
+    save_json,
+    get_digits,
+    ZoneInfo,
+    encryptor,
+    get_remote_version,
+)
 from ..setting import SETTING_FILENAME, SETTINGS
 from ..locale import _
 
@@ -59,15 +65,22 @@ class BaseCell(QtWidgets.QTableWidgetItem):
     def __init__(self, content: Any, data: Any) -> None:
         """"""
         super().__init__()
-        self.setTextAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+
+        self._text: str = ""
+        self._data: Any = None
+
+        self.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+
         self.set_content(content, data)
 
     def set_content(self, content: Any, data: Any) -> None:
         """
         Set text content.
         """
-        self.setText(str(content))
+        self._text = str(content)
         self._data = data
+
+        self.setText(self._text)
 
     def get_data(self) -> Any:
         """
@@ -75,11 +88,22 @@ class BaseCell(QtWidgets.QTableWidgetItem):
         """
         return self._data
 
+    def __lt__(self, other: "BaseCell") -> bool:  # type: ignore
+        """
+        Sort by text content.
+        """
+        result: bool = self._text < other._text
+        return result
+
 
 class EnumCell(BaseCell):
     """
     Cell used for showing enum data.
     """
+
+    def __init__(self, content: Enum, data: Any) -> None:
+        """"""
+        super().__init__(content, data)
 
     def set_content(self, content: Any, data: Any) -> None:
         """
@@ -93,6 +117,11 @@ class DirectionCell(EnumCell):
     """
     Cell used for showing direction data.
     """
+
+    def __init__(self, content: str, data: Any) -> None:
+        """"""
+        super().__init__(content, data)
+
     def set_content(self, content: Any, data: Any) -> None:
         """
         Cell color is set according to direction.
@@ -194,7 +223,9 @@ class MsgCell(BaseCell):
     def __init__(self, content: str, data: Any) -> None:
         """"""
         super().__init__(content, data)
-        self.setTextAlignment(QtCore.Qt.AlignmentFlag.AlignLeft | QtCore.Qt.AlignmentFlag.AlignVCenter)
+        self.setTextAlignment(
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+        )
 
 
 class BaseMonitor(QtWidgets.QTableWidget):
@@ -215,7 +246,7 @@ class BaseMonitor(QtWidgets.QTableWidget):
 
         self.main_engine: MainEngine = main_engine
         self.event_engine: EventEngine = event_engine
-        self.cells: Dict[str, dict] = {}
+        self.cells: dict[str, dict] = {}
 
         self.init_ui()
         self.load_setting()
@@ -325,13 +356,17 @@ class BaseMonitor(QtWidgets.QTableWidget):
         """
         Resize all columns according to contents.
         """
-        self.horizontalHeader().resizeSections(QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
+        self.horizontalHeader().resizeSections(
+            QtWidgets.QHeaderView.ResizeMode.ResizeToContents
+        )
 
     def save_csv(self) -> None:
         """
         Save table data into a csv file
         """
-        path, __ = QtWidgets.QFileDialog.getSaveFileName(self, _("保存数据"), "", "CSV(*.csv)")
+        path, __ = QtWidgets.QFileDialog.getSaveFileName(
+            self, _("保存数据"), "", "CSV(*.csv)"
+        )
 
         if not path:
             return
@@ -348,7 +383,7 @@ class BaseMonitor(QtWidgets.QTableWidget):
 
                 row_data: list = []
                 for column in range(self.columnCount()):
-                    item: QtWidgets.QTableWidgetItem = self.item(row, column)
+                    item: QtWidgets.QTableWidgetItem | None = self.item(row, column)
                     if item:
                         row_data.append(str(item.text()))
                     else:
@@ -373,7 +408,7 @@ class BaseMonitor(QtWidgets.QTableWidget):
 
         if isinstance(column_state, QtCore.QByteArray):
             self.horizontalHeader().restoreState(column_state)
-            self.horizontalHeader().setSortIndicator(-1, QtCore.Qt.SortOrder.AscendingOrder)
+            self.horizontalHeader().setSortIndicator(-1, Qt.SortOrder.AscendingOrder)
 
 
 class TickMonitor(BaseMonitor):
@@ -550,7 +585,7 @@ class QuoteMonitor(BaseMonitor):
         "gateway_name": {"display": _("接口"), "cell": BaseCell, "update": False},
     }
 
-    def init_ui(self):
+    def init_ui(self) -> None:
         """
         Connect signal.
         """
@@ -581,10 +616,12 @@ class ConnectDialog(QtWidgets.QDialog):
         self.gateway_name: str = gateway_name
         self.filename: str = f"connect_{gateway_name.lower()}.json"
 
-        self.widgets: Dict[str, Tuple[QtWidgets.QWidget, RegisteredQWidgetType]] = {}
+        self.widgets: dict[str, tuple[QtWidgets.QWidget, RegisteredQWidgetType]] = {}
 
         self.saved_settings: dict = {}
-        self.default_setting: dict = self.main_engine.get_default_setting(self.gateway_name)
+        self.default_setting: dict = self.main_engine.get_default_setting(
+            self.gateway_name
+        )
         self.field_widgets_mapping: dict = {}
 
         self.init_ui()
@@ -612,7 +649,10 @@ class ConnectDialog(QtWidgets.QDialog):
         vbox: QtWidgets.QVBoxLayout = QtWidgets.QVBoxLayout()
 
         self.combo = QtWidgets.QComboBox(self)
-        self.combo.addItems([this_setting_name] + [n for n in self.saved_settings.keys() if n != this_setting_name])
+        self.combo.addItems(
+            [this_setting_name]
+            + [n for n in self.saved_settings.keys() if n != this_setting_name]
+        )
         self.combo.setEditable(True)
         self.combo.currentTextChanged.connect(self.update_combo)
 
@@ -626,7 +666,7 @@ class ConnectDialog(QtWidgets.QDialog):
                 field_value = field_value_type
                 field_type = self._guess_value_type(field_name, field_value)
 
-            widget_type: Type[QtWidgets.QWidget] = QWIDGET_TYPE_MAPPING[field_type]
+            widget_type: type[QtWidgets.QWidget] = QWIDGET_TYPE_MAPPING[field_type]
             widget: QtWidgets.QWidget = widget_type()
 
             if field_name in self.saved_settings.get(this_setting_name, {}):
@@ -642,9 +682,13 @@ class ConnectDialog(QtWidgets.QDialog):
             else:
                 widget.setText(str(field_value))
                 if isinstance(field_value, int):
-                    cast(QtWidgets.QLineEdit, widget).setValidator(QtGui.QIntValidator())
+                    cast(QtWidgets.QLineEdit, widget).setValidator(
+                        QtGui.QIntValidator()
+                    )
                 elif isinstance(field_value, float):
-                    cast(QtWidgets.QLineEdit, widget).setValidator(QtGui.QDoubleValidator())
+                    cast(QtWidgets.QLineEdit, widget).setValidator(
+                        QtGui.QDoubleValidator()
+                    )
 
             form.addRow(f"{field_name} <{field_type.value}>", widget)
             self.widgets[field_name] = (widget, field_type)
@@ -668,7 +712,11 @@ class ConnectDialog(QtWidgets.QDialog):
         if this_selection not in self.saved_settings:
             for field_name, (widget, field_type) in self.widgets.items():
                 field_value_type = self.default_setting[field_name]
-                field_value = field_value_type[0] if isinstance(field_value_type, tuple) else field_value_type
+                field_value = (
+                    field_value_type[0]
+                    if isinstance(field_value_type, tuple)
+                    else field_value_type
+                )
                 if field_type == RegisteredQWidgetType.GW_COMBOBOX:
                     widget.setCurrentText(field_value)
                 else:
@@ -747,7 +795,7 @@ class TradingWidget(QtWidgets.QWidget):
         self.setFixedWidth(300)
 
         # Trading function area
-        exchanges: List[Exchange] = self.main_engine.get_all_exchanges()
+        exchanges: list[Exchange] = self.main_engine.get_all_exchanges()
         self.exchange_combo: QtWidgets.QComboBox = QtWidgets.QComboBox()
         self.exchange_combo.addItems([exchange.value for exchange in exchanges])
 
@@ -821,15 +869,20 @@ class TradingWidget(QtWidgets.QWidget):
         self.bp5_label: QtWidgets.QLabel = self.create_label(bid_color)
 
         self.bv1_label: QtWidgets.QLabel = self.create_label(
-            bid_color, alignment=QtCore.Qt.AlignmentFlag.AlignRight)
+            bid_color, alignment=Qt.AlignmentFlag.AlignRight
+        )
         self.bv2_label: QtWidgets.QLabel = self.create_label(
-            bid_color, alignment=QtCore.Qt.AlignmentFlag.AlignRight)
+            bid_color, alignment=Qt.AlignmentFlag.AlignRight
+        )
         self.bv3_label: QtWidgets.QLabel = self.create_label(
-            bid_color, alignment=QtCore.Qt.AlignmentFlag.AlignRight)
+            bid_color, alignment=Qt.AlignmentFlag.AlignRight
+        )
         self.bv4_label: QtWidgets.QLabel = self.create_label(
-            bid_color, alignment=QtCore.Qt.AlignmentFlag.AlignRight)
+            bid_color, alignment=Qt.AlignmentFlag.AlignRight
+        )
         self.bv5_label: QtWidgets.QLabel = self.create_label(
-            bid_color, alignment=QtCore.Qt.AlignmentFlag.AlignRight)
+            bid_color, alignment=Qt.AlignmentFlag.AlignRight
+        )
 
         self.ap1_label: QtWidgets.QLabel = self.create_label(ask_color)
         self.ap2_label: QtWidgets.QLabel = self.create_label(ask_color)
@@ -838,18 +891,25 @@ class TradingWidget(QtWidgets.QWidget):
         self.ap5_label: QtWidgets.QLabel = self.create_label(ask_color)
 
         self.av1_label: QtWidgets.QLabel = self.create_label(
-            ask_color, alignment=QtCore.Qt.AlignmentFlag.AlignRight)
+            ask_color, alignment=Qt.AlignmentFlag.AlignRight
+        )
         self.av2_label: QtWidgets.QLabel = self.create_label(
-            ask_color, alignment=QtCore.Qt.AlignmentFlag.AlignRight)
+            ask_color, alignment=Qt.AlignmentFlag.AlignRight
+        )
         self.av3_label: QtWidgets.QLabel = self.create_label(
-            ask_color, alignment=QtCore.Qt.AlignmentFlag.AlignRight)
+            ask_color, alignment=Qt.AlignmentFlag.AlignRight
+        )
         self.av4_label: QtWidgets.QLabel = self.create_label(
-            ask_color, alignment=QtCore.Qt.AlignmentFlag.AlignRight)
+            ask_color, alignment=Qt.AlignmentFlag.AlignRight
+        )
         self.av5_label: QtWidgets.QLabel = self.create_label(
-            ask_color, alignment=QtCore.Qt.AlignmentFlag.AlignRight)
+            ask_color, alignment=Qt.AlignmentFlag.AlignRight
+        )
 
         self.lp_label: QtWidgets.QLabel = self.create_label()
-        self.return_label: QtWidgets.QLabel = self.create_label(alignment=QtCore.Qt.AlignmentFlag.AlignRight)
+        self.return_label: QtWidgets.QLabel = self.create_label(
+            alignment=Qt.AlignmentFlag.AlignRight
+        )
 
         form: QtWidgets.QFormLayout = QtWidgets.QFormLayout()
         form.addRow(self.ap5_label, self.av5_label)
@@ -872,8 +932,7 @@ class TradingWidget(QtWidgets.QWidget):
 
     @staticmethod
     def create_label(
-        color: str = "",
-        alignment: QtCore.Qt.Alignment = QtCore.Qt.AlignmentFlag.AlignLeft
+        color: str = "", alignment: Qt.Alignment = Qt.AlignmentFlag.AlignLeft
     ) -> QtWidgets.QLabel:
         """
         Create label with certain font color.
@@ -889,7 +948,9 @@ class TradingWidget(QtWidgets.QWidget):
         self.signal_tick.connect(self.process_tick_event)
         self.event_engine.register(EVENT_TICK, self.signal_tick.emit)
         self.signal_gw_connected.connect(self.process_gw_connected_event)
-        self.event_engine.register(EVENT_GATEWAY_CONNECTED, self.signal_gw_connected.emit)
+        self.event_engine.register(
+            EVENT_GATEWAY_CONNECTED, self.signal_gw_connected.emit
+        )
 
     def process_tick_event(self, event: Event) -> None:
         """"""
@@ -939,8 +1000,15 @@ class TradingWidget(QtWidgets.QWidget):
             gw_name = event.data
             gw = self.main_engine.get_gateway(gw_name)
             if gw:
-                exchanges_in_combo = [self.exchange_combo.itemText(i) for i in range(self.exchange_combo.count())]
-                new_exchanges = [exchange.value for exchange in gw.exchanges if exchange.value not in exchanges_in_combo]
+                exchanges_in_combo = [
+                    self.exchange_combo.itemText(i)
+                    for i in range(self.exchange_combo.count())
+                ]
+                new_exchanges = [
+                    exchange.value
+                    for exchange in gw.exchanges
+                    if exchange.value not in exchanges_in_combo
+                ]
                 self.exchange_combo.addItems(new_exchanges)
 
     def set_vt_symbol(self) -> None:
@@ -960,7 +1028,7 @@ class TradingWidget(QtWidgets.QWidget):
         self.vt_symbol = vt_symbol
 
         # Update name line widget and clear all labels
-        contract: ContractData = self.main_engine.get_contract(vt_symbol)
+        contract: ContractData | None = self.main_engine.get_contract(vt_symbol)
         if not contract:
             self.name_line.setText("")
             gateway_name: str = self.gateway_combo.currentText()
@@ -980,7 +1048,9 @@ class TradingWidget(QtWidgets.QWidget):
         self.price_line.setText("")
 
         # Subscribe tick data
-        req: SubscribeRequest = SubscribeRequest(symbol=symbol, exchange=Exchange(exchange_value))
+        req: SubscribeRequest = SubscribeRequest(
+            symbol=symbol, exchange=Exchange(exchange_value)
+        )
 
         self.main_engine.subscribe(req, gateway_name)
 
@@ -1032,7 +1102,7 @@ class TradingWidget(QtWidgets.QWidget):
 
         price_text: str = str(self.price_line.text())
         if not price_text:
-            price = 0
+            price: float = 0
         else:
             price = float(price_text)
 
@@ -1055,7 +1125,7 @@ class TradingWidget(QtWidgets.QWidget):
         """
         Cancel all active orders.
         """
-        order_list: List[OrderData] = self.main_engine.get_all_active_orders()
+        order_list: list[OrderData] = self.main_engine.get_all_active_orders()
         for order in order_list:
             req: CancelRequest = order.create_cancel_request()
             self.main_engine.cancel_order(req, order.gateway_name)
@@ -1065,7 +1135,9 @@ class TradingWidget(QtWidgets.QWidget):
         data = cell.get_data()
 
         self.symbol_line.setText(data.symbol)
-        self.exchange_combo.setCurrentIndex(self.exchange_combo.findText(data.exchange.value))
+        self.exchange_combo.setCurrentIndex(
+            self.exchange_combo.findText(data.exchange.value)
+        )
 
         self.set_vt_symbol()
 
@@ -1080,8 +1152,12 @@ class TradingWidget(QtWidgets.QWidget):
                 else:
                     direction: Direction = Direction.LONG
 
-            self.direction_combo.setCurrentIndex(self.direction_combo.findText(direction.value))
-            self.offset_combo.setCurrentIndex(self.offset_combo.findText(Offset.CLOSE.value))
+            self.direction_combo.setCurrentIndex(
+                self.direction_combo.findText(direction.value)
+            )
+            self.offset_combo.setCurrentIndex(
+                self.offset_combo.findText(Offset.CLOSE.value)
+            )
             self.volume_line.setText(str(abs(data.volume)))
 
 
@@ -1090,7 +1166,7 @@ class ActiveOrderMonitor(OrderMonitor):
     Monitor which shows active order only.
     """
 
-    def process_event(self, event) -> None:
+    def process_event(self, event: Event) -> None:
         """
         Hides the row if order is not active.
         """
@@ -1111,7 +1187,7 @@ class ContractManager(QtWidgets.QWidget):
     Query contract data available to trade in system.
     """
 
-    headers: Dict[str, str] = {
+    headers: dict[str, str] = {
         "vt_symbol": _("本地代码"),
         "symbol": _("代码"),
         "exchange": _("交易所"),
@@ -1141,7 +1217,9 @@ class ContractManager(QtWidgets.QWidget):
         self.resize(1000, 600)
 
         self.filter_line: QtWidgets.QLineEdit = QtWidgets.QLineEdit()
-        self.filter_line.setPlaceholderText(_("输入合约代码或者交易所，留空则查询所有合约"))
+        self.filter_line.setPlaceholderText(
+            _("输入合约代码或者交易所，留空则查询所有合约")
+        )
 
         self.button_show: QtWidgets.QPushButton = QtWidgets.QPushButton(_("查询"))
         self.button_show.clicked.connect(self.show_contracts)
@@ -1155,7 +1233,9 @@ class ContractManager(QtWidgets.QWidget):
         self.contract_table.setColumnCount(len(self.headers))
         self.contract_table.setHorizontalHeaderLabels(labels)
         self.contract_table.verticalHeader().setVisible(False)
-        self.contract_table.setEditTriggers(self.contract_table.EditTrigger.NoEditTriggers)
+        self.contract_table.setEditTriggers(
+            self.contract_table.EditTrigger.NoEditTriggers
+        )
         self.contract_table.setAlternatingRowColors(True)
 
         hbox: QtWidgets.QHBoxLayout = QtWidgets.QHBoxLayout()
@@ -1174,18 +1254,20 @@ class ContractManager(QtWidgets.QWidget):
         """
         flt: str = str(self.filter_line.text())
 
-        all_contracts: List[ContractData] = self.main_engine.get_all_contracts()
+        all_contracts: list[ContractData] = self.main_engine.get_all_contracts()
         if flt:
-            contracts: List[ContractData] = [contract for contract in all_contracts if flt in contract.vt_symbol]
+            contracts: list[ContractData] = [
+                contract for contract in all_contracts if flt in contract.vt_symbol
+            ]
         else:
-            contracts: List[ContractData] = all_contracts
+            contracts = all_contracts
 
         self.contract_table.clearContents()
         self.contract_table.setRowCount(len(contracts))
 
         for row, contract in enumerate(contracts):
             for column, name in enumerate(self.headers.keys()):
-                value: object = getattr(contract, name)
+                value: Any = getattr(contract, name)
 
                 if value in {None, 0}:
                     value = ""
@@ -1202,7 +1284,6 @@ class ContractManager(QtWidgets.QWidget):
 
 
 class UpdatingProgressBar(QtWidgets.QFrame):
-
     def __init__(self, main_engine: MainEngine, app_name: str, parent=None):
         super().__init__(parent)
         self.main_engine: MainEngine = main_engine
@@ -1216,13 +1297,13 @@ class UpdatingProgressBar(QtWidgets.QFrame):
         self.progress_bar = QtWidgets.QProgressBar()
         self.progress_bar.setRange(0, 0)
         self.progress_bar.setValue(0)
-        self.progress_bar.setAlignment(QtCore.Qt.AlignCenter)
+        self.progress_bar.setAlignment(Qt.AlignCenter)
         self.progress_bar.setTextVisible(True)
         self.progress_bar.setStyleSheet(
             "QProgressBar {text-align: center;} QProgressBar::chunk {background-color: #37a0f4;}"
         )
         self.label = QtWidgets.QLabel("初始化更新")
-        self.label.setAlignment(QtCore.Qt.AlignCenter)
+        self.label.setAlignment(Qt.AlignCenter)
         vbox: QtWidgets.QVBoxLayout = QtWidgets.QVBoxLayout()
         vbox.addWidget(self.label)
         vbox.addWidget(self.progress_bar)
@@ -1238,7 +1319,9 @@ class UpdatingProgressBar(QtWidgets.QFrame):
             pip_url = f"{app_module.__name__}@git+{app_module.__git_url__}"
             with subprocess.Popen(
                 ["python", "-m", "pip", "install", "--upgrade", pip_url],
-                    text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
             ) as process:
                 for line in process.stdout:
                     print(line)
@@ -1275,8 +1358,9 @@ class UpdatingProgressBar(QtWidgets.QFrame):
 
 
 class ModuleUpdateDialog(QtWidgets.QWidget):
-
-    def __init__(self, main_engine: MainEngine, event_engine: EventEngine, parent=None) -> None:
+    def __init__(
+        self, main_engine: MainEngine, event_engine: EventEngine, parent=None
+    ) -> None:
         """"""
         super().__init__(parent)
 
@@ -1297,7 +1381,9 @@ class ModuleUpdateDialog(QtWidgets.QWidget):
         self.modules_grid.setColumnWidth(1, 150)
         self.modules_grid.setColumnWidth(2, 150)
         self.modules_grid.setColumnWidth(3, 60)
-        self.modules_grid.setHorizontalHeaderLabels([_("模块"), _("本地版本"), _("最新版本"), ""])
+        self.modules_grid.setHorizontalHeaderLabels(
+            [_("模块"), _("本地版本"), _("最新版本"), ""]
+        )
         self.modules_grid.setRowCount(0)
         self.modules_grid.verticalHeader().setVisible(False)
         self.modules_grid.setEditTriggers(QtWidgets.QTableWidget.NoEditTriggers)
@@ -1315,14 +1401,14 @@ class ModuleUpdateDialog(QtWidgets.QWidget):
                 remote_version = get_remote_version(app_module.__git_url__)
             else:
                 remote_version = ""
-            # if remote_version.startswith("v"):
-            #     remote_version = remote_version[1:]
             cell_latest = QtWidgets.QTableWidgetItem(remote_version)
             self.modules_grid.setItem(row, 2, cell_latest)
 
             button = QtWidgets.QPushButton(_("更新"))
             button.setObjectName(app.app_name)
-            button.setEnabled(remote_version and remote_version != app_module.__version__)
+            button.setEnabled(
+                remote_version and remote_version != app_module.__version__
+            )
             button.clicked.connect(self.update_module)
             self.modules_grid.setCellWidget(row, 3, button)
 
@@ -1334,7 +1420,11 @@ class ModuleUpdateDialog(QtWidgets.QWidget):
     def set_button_status(self, row_num: int) -> None:
         remote_version = self.modules_grid.item(row_num, 2).text()
         local_version = self.modules_grid.item(row_num, 1).text()
-        if remote_version and remote_version != local_version and _("更新") not in local_version:
+        if (
+            remote_version
+            and remote_version != local_version
+            and _("更新") not in local_version
+        ):
             button = self.modules_grid.cellWidget(row_num, 3)
             button.setEnabled(True)
 
@@ -1344,7 +1434,9 @@ class ModuleUpdateDialog(QtWidgets.QWidget):
         for row in range(self.modules_grid.rowCount()):
             button = self.modules_grid.cellWidget(row, 3)
             button.setEnabled(False)
-        self.update_progress = UpdatingProgressBar(self.main_engine, related_app_name, self)
+        self.update_progress = UpdatingProgressBar(
+            self.main_engine, related_app_name, self
+        )
         self.vbox.insertWidget(0, self.update_progress)
         QtWidgets.QApplication.processEvents()
         self.update_progress.run_update(self.on_update_completed)
@@ -1352,7 +1444,9 @@ class ModuleUpdateDialog(QtWidgets.QWidget):
     def on_update_completed(self, progressor: UpdatingProgressBar) -> None:
         cell = self.modules_grid.item(self.row_mapping[progressor.app_name], 1)
         if progressor.error_flag:
-            QtWidgets.QMessageBox.critical(self, _("更新失败"), progressor.error_reason + "\n")
+            QtWidgets.QMessageBox.critical(
+                self, _("更新失败"), progressor.error_reason + "\n"
+            )
             cell.setText(_("更新失败，联系管理员修复。"))
         else:
             cell.setText(_("已更新，重启生效"))
@@ -1394,9 +1488,9 @@ class AboutDialog(QtWidgets.QDialog):
 
             VeighNa - {vnpy_version}
             Python - {platform.python_version()}
-            PySide6 - {importlib_metadata.version("pyside6")}
-            NumPy - {importlib_metadata.version("numpy")}
-            pandas - {importlib_metadata.version("pandas")}
+            PySide6 - {metadata.version("pyside6")}
+            NumPy - {metadata.version("numpy")}
+            pandas - {metadata.version("pandas")}
             """
 
         label: QtWidgets.QLabel = QtWidgets.QLabel()
@@ -1417,7 +1511,7 @@ class GlobalDialog(QtWidgets.QDialog):
         """"""
         super().__init__(parent)
 
-        self.widgets: Dict[str, Any] = {}
+        self.widgets: dict[str, Any] = {}
 
         self.init_ui()
 
@@ -1463,7 +1557,7 @@ class GlobalDialog(QtWidgets.QDialog):
             widget, field_type = tp
             value_text: str = widget.text()
 
-            if field_type == bool:
+            if field_type is bool:
                 if value_text == "True":
                     field_value: bool = True
                 else:
@@ -1473,7 +1567,12 @@ class GlobalDialog(QtWidgets.QDialog):
 
             settings[field_name] = field_value
 
-        QtWidgets.QMessageBox.information(self, _("注意"), _("全局配置的修改需要重启后才会生效！"), QtWidgets.QMessageBox.Ok)
+        QtWidgets.QMessageBox.information(
+            self,
+            _("注意"),
+            _("全局配置的修改需要重启后才会生效！"),
+            QtWidgets.QMessageBox.Ok,
+        )
 
         save_json(SETTING_FILENAME, settings)
         self.accept()

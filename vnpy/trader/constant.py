@@ -8,7 +8,6 @@ from .locale import _
 
 
 class VNBaseEnum(Enum):
-
     def __str__(self):
         return self.value
 
@@ -33,7 +32,7 @@ class Direction(VNBaseEnum):
         return self.opposite()
 
     def __mul__(self, other):
-        if isinstance(other, (float, int)) and other < 0 or other == Direction.SHORT:
+        if isinstance(other, float | int) and other < 0 or other == Direction.SHORT:
             return self.opposite()
         if other == 0:
             return Direction.NET
@@ -181,6 +180,7 @@ class Currency(VNBaseEnum):
     """
     Currency.
     """
+
     USD = "USD"
     HKD = "HKD"
     CNY = "CNY"

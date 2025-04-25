@@ -4,7 +4,7 @@ dynamic = ["version"]
 description = "A framework for developing quant trading systems."
 readme = "README.md"
 license = {text = "MIT"}
-authors = [{name = "Xiaoyou Chen", email = "xiaoyou.chen@mail.vnpy.com"}]
+authors = [{name = "YQ Tsui", email = "qianyun210603@hotmail.com"}]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "License :: OSI Approved :: MIT License",
@@ -12,7 +12,6 @@ classifiers = [
     "Operating System :: POSIX :: Linux",
     "Operating System :: MacOS",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -55,13 +54,6 @@ dev = [
     "babel>=2.17.0",
 ]
 
-[project.urls]
-"Homepage" = "https://www.vnpy.com"
-"Documentation" = "https://www.vnpy.com/docs"
-"Changes" = "https://github.com/vnpy/vnpy/blob/master/CHANGELOG.md"
-"Source" = "https://github.com/vnpy/vnpy/"
-"Forum" = "https://www.vnpy.com/forum"
-
 [build-system]
 requires = ["hatchling>=1.27.0", "babel>=2.17.0"]
 build-backend = "hatchling.build"
@@ -84,7 +76,7 @@ path = "vnpy/trader/locale/build_hook.py"
 "vnpy/trader/locale/en/LC_MESSAGES/vnpy.mo" = "vnpy/trader/locale/en/LC_MESSAGES/vnpy.mo"
 
 [tool.ruff]
-target-version = "py310"
+target-version = "py312"
 output-format = "full"
 
 [tool.ruff.lint]
@@ -94,11 +86,13 @@ select = [
     "F",  # pyflakes
     "UP",  # pyupgrade
     "W",  # pycodestyle warning
+    "I", # isort
+    "PL" # pylint
 ]
 ignore = ["E501"]
 
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.12"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
@@ -110,3 +104,18 @@ strict_optional = true
 warn_redundant_casts = true
 warn_unused_ignores = true
 warn_no_return = true
+
+[tool.pylint]
+disable = ["C0104", "C0114", "C0115", "C0116", "C0301", "C0302", "C0411", "C0413", "C1802", "R0401", "R0801", "R0901", "R0902", "R0903", "R0904", "R0911", "R0912", "R0913", "R0914", "R0915", "R1702", "R1720", "W0105", "W0123", "W0201", "W0511", "W0613", "W1113", "W1514", "E0401", "E1121", "C0103", "C0209", "R0402", "R1705", "R1710", "R1725", "R1735", "W0102", "W0212", "W0221", "W0223", "W0231", "W0237", "W0612", "W0621", "W0622", "W0703", "W1309", "E1102", "E1136", "I1101", "C0112", "W1201", "W1202", "W1203", "R0917"]
+output-format = "colorized"
+extension-pkg-allow-list = ["numpy", "pandas", "plotly", "PySide6", "PyQt5", "PyQt6", "talib"]
+max-line-length = 120
+
+[tool.black]
+line-length = 120
+target-version = ['py311', 'py312', "py313"]
+
+[tool.isort]
+profile = "black"
+line_length = 120
+known_third_party = ["numpy", "pandas", "plotly", "PySide6", "PyQt5", "PyQt6"]

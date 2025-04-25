@@ -357,10 +357,7 @@ class OffsetConverter:
         return holding
 
     def convert_order_request(
-        self,
-        req: OrderRequest,
-        lock: bool,
-        net: bool = False
+        self, req: OrderRequest, lock: bool, net: bool = False
     ) -> list[OrderRequest]:
         """"""
         if not self.is_convert_required(req.vt_symbol):

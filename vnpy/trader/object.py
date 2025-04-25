@@ -6,10 +6,17 @@ import numpy as np
 from dataclasses import dataclass, field, asdict
 from datetime import datetime as Datetime
 from logging import INFO
-from typing import Optional
-from decimal import Decimal
 
-from .constant import Direction, Exchange, Interval, Offset, Status, Product, OptionType, OrderType
+from .constant import (
+    Direction,
+    Exchange,
+    Interval,
+    Offset,
+    Status,
+    Product,
+    OptionType,
+    OrderType,
+)
 
 ACTIVE_STATUSES = {Status.SUBMITTING, Status.NOTTRADED, Status.PARTTRADED}
 
@@ -180,7 +187,9 @@ class OrderData(BaseData):
         """
         Create cancel request object from order.
         """
-        req: CancelRequest = CancelRequest(orderid=self.orderid, symbol=self.symbol, exchange=self.exchange)
+        req: CancelRequest = CancelRequest(
+            orderid=self.orderid, symbol=self.symbol, exchange=self.exchange
+        )
         return req
 
     def __str__(self):
@@ -236,7 +245,9 @@ class PositionData(BaseData):
     def __post_init__(self) -> None:
         """"""
         self.vt_symbol: str = f"{self.symbol}.{self.exchange.value}"
-        self.vt_positionid: str = f"{self.gateway_name}.{self.vt_symbol}.{self.direction.value}"
+        self.vt_positionid: str = (
+            f"{self.gateway_name}.{self.vt_symbol}.{self.direction.value}"
+        )
 
 
 @dataclass
@@ -315,7 +326,6 @@ class ContractData(BaseData):
         return round(volume / self.min_volume) * self.min_volume
 
 
-
 @dataclass
 class QuoteData(BaseData):
     """
@@ -352,7 +362,9 @@ class QuoteData(BaseData):
         """
         Create cancel request object from quote.
         """
-        req: CancelRequest = CancelRequest(orderid=self.quoteid, symbol=self.symbol, exchange=self.exchange)
+        req: CancelRequest = CancelRequest(
+            orderid=self.quoteid, symbol=self.symbol, exchange=self.exchange
+        )
         return req
 
 
@@ -505,18 +517,39 @@ class Commission(BaseData):
         if self.close_ratio_bymoney < 1e-10 and self.close_ratio_byvolume < 1e-10:
             base_scenario["平"] = money * self.ratio_bymoney + self.ratio_byvolume
         else:
-            base_scenario["平"] = money * self.close_ratio_bymoney + self.close_ratio_byvolume
-        if self.close_today_ratio_bymoney > 1e-10 and self.close_today_ratio_byvolume > 1e-10:
-            base_scenario["平今"] = money * self.close_today_ratio_bymoney + self.close_today_ratio_byvolume
+            base_scenario["平"] = (
+                money * self.close_ratio_bymoney + self.close_ratio_byvolume
+            )
+        if (
+            self.close_today_ratio_bymoney > 1e-10
+            and self.close_today_ratio_byvolume > 1e-10
+        ):
+            base_scenario["平今"] = (
+                money * self.close_today_ratio_bymoney + self.close_today_ratio_byvolume
+            )
         return base_scenario
 
-    def __call__(self, price: float, Offset: Offset = Offset.NONE, size: float = 1.0, is_today: bool = False):
+    def __call__(
+        self,
+        price: float,
+        Offset: Offset = Offset.NONE,
+        size: float = 1.0,
+        is_today: bool = False,
+    ):
         """
         计算手续费
         """
-        if Offset == Offset.CLOSE and (self.close_ratio_bymoney > 1e-10 or self.close_ratio_byvolume > 1e-10):
-            if is_today and (self.close_today_ratio_bymoney > 1e-10 or self.close_today_ratio_byvolume > 1e-10):
-                return price * size * self.close_today_ratio_bymoney + self.close_today_ratio_byvolume
+        if Offset == Offset.CLOSE and (
+            self.close_ratio_bymoney > 1e-10 or self.close_ratio_byvolume > 1e-10
+        ):
+            if is_today and (
+                self.close_today_ratio_bymoney > 1e-10
+                or self.close_today_ratio_byvolume > 1e-10
+            ):
+                return (
+                    price * size * self.close_today_ratio_bymoney
+                    + self.close_today_ratio_byvolume
+                )
             return price * size * self.close_ratio_bymoney + self.close_ratio_byvolume
         return price * size * self.ratio_bymoney + self.ratio_byvolume
 

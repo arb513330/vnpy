@@ -8,12 +8,6 @@ class TestClient(RpcClient):
     Test RpcClient
     """
 
-    def __init__(self) -> None:
-        """
-        Constructor
-        """
-        super().__init__()
-
     def callback(self, topic: str, data: Any) -> None:
         """
         Realize callable function

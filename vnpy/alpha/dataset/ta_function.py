@@ -23,7 +23,7 @@ def ta_rsi(close: DataProxy, window: int) -> DataProxy:
     """Calculate RSI indicator by contract"""
     close_: pd.Series = to_pd_series(close)
 
-    result: pd.Series = talib.RSI(close_, timeperiod=window)   # type: ignore
+    result: pd.Series = talib.RSI(close_, timeperiod=window)  # type: ignore
 
     df: pl.DataFrame = to_pl_dataframe(result)
     return DataProxy(df)
@@ -35,7 +35,7 @@ def ta_atr(high: DataProxy, low: DataProxy, close: DataProxy, window: int) -> Da
     low_: pd.Series = to_pd_series(low)
     close_: pd.Series = to_pd_series(close)
 
-    result: pd.Series = talib.ATR(high_, low_, close_, timeperiod=window)   # type: ignore
+    result: pd.Series = talib.ATR(high_, low_, close_, timeperiod=window)  # type: ignore
 
     df: pl.DataFrame = to_pl_dataframe(result)
     return DataProxy(df)

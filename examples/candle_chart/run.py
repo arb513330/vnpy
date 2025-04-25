@@ -15,7 +15,7 @@ if __name__ == "__main__":
         Exchange.CFFEX,
         interval=Interval.MINUTE,
         start=datetime(2019, 7, 1),
-        end=datetime(2019, 7, 17)
+        end=datetime(2019, 7, 17),
     )
 
     widget = ChartWidget()

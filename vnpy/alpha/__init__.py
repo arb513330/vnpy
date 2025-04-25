@@ -13,5 +13,5 @@ __all__ = [
     "AlphaModel",
     "AlphaStrategy",
     "BacktestingEngine",
-    "AlphaLab"
+    "AlphaLab",
 ]

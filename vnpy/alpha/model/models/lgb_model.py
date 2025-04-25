@@ -19,7 +19,7 @@ class LgbModel(AlphaModel):
         num_boost_round: int = 1000,
         early_stopping_rounds: int = 50,
         log_evaluation_period: int = 1,
-        seed: int | None = None
+        seed: int | None = None,
     ):
         """
         Parameters
@@ -41,7 +41,7 @@ class LgbModel(AlphaModel):
             "objective": "mse",
             "learning_rate": learning_rate,
             "num_leaves": num_leaves,
-            "seed": seed
+            "seed": seed,
         }
 
         self.num_boost_round: int = num_boost_round
@@ -73,7 +73,7 @@ class LgbModel(AlphaModel):
             df = df.sort(["datetime", "vt_symbol"])
 
             # Convert to numpy arrays
-            data = df.select(df.columns[2: -1]).to_pandas()
+            data = df.select(df.columns[2:-1]).to_pandas()
             label = np.array(df["label"])
 
             # Add training data
@@ -105,9 +105,11 @@ class LgbModel(AlphaModel):
             valid_sets=ds,
             valid_names=["train", "valid"],
             callbacks=[
-                lgb.early_stopping(self.early_stopping_rounds),      # Early stopping callback
-                lgb.log_evaluation(self.log_evaluation_period)       # Logging callback
-            ]
+                lgb.early_stopping(
+                    self.early_stopping_rounds
+                ),  # Early stopping callback
+                lgb.log_evaluation(self.log_evaluation_period),  # Logging callback
+            ],
         )
 
     def predict(self, dataset: AlphaDataset, segment: Segment) -> np.ndarray:
@@ -140,7 +142,7 @@ class LgbModel(AlphaModel):
         df = df.sort(["datetime", "vt_symbol"])
 
         # Convert to numpy array
-        data: np.ndarray = df.select(df.columns[2: -1]).to_numpy()
+        data: np.ndarray = df.select(df.columns[2:-1]).to_numpy()
 
         # Return prediction results
         result: np.ndarray = cast(np.ndarray, self.model.predict(data))
@@ -165,6 +167,6 @@ class LgbModel(AlphaModel):
                 self.model,
                 max_num_features=50,
                 importance_type=importance_type,
-                figsize=(10, 20)
+                figsize=(10, 20),
             )
             ax.set_title(f"Feature Importance ({importance_type})")

@@ -99,7 +99,7 @@ class DataProxy:
             s = self.df["data"] <= other
         return self.result(s)
 
-    def __eq__(self, other: Union["DataProxy", int, float]) -> "DataProxy":    # type: ignore
+    def __eq__(self, other: Union["DataProxy", int, float]) -> "DataProxy":  # type: ignore
         """Equal comparison"""
         if isinstance(other, DataProxy):
             s = self.df["data"] == other.df["data"]
@@ -111,27 +111,32 @@ class DataProxy:
 def calculate_by_expression(df: pl.DataFrame, expression: str) -> pl.DataFrame:
     """Execute calculation based on expression"""
     # Import operators locally to avoid polluting global namespace
-    from .ts_function import (              # noqa
+    from .ts_function import (  # noqa # pylint: disable=import-outside-toplevel, possibly-unused-variable
         ts_delay,
-        ts_min, ts_max,
-        ts_argmax, ts_argmin,
-        ts_rank, ts_sum,
-        ts_mean, ts_std,
-        ts_slope, ts_quantile,
-        ts_rsquare, ts_resi,
+        ts_min,
+        ts_max,
+        ts_argmax,
+        ts_argmin,
+        ts_rank,
+        ts_sum,
+        ts_mean,
+        ts_std,
+        ts_slope,
+        ts_quantile,
+        ts_rsquare,
+        ts_resi,
         ts_corr,
-        ts_less, ts_greater,
-        ts_log, ts_abs
+        ts_less,
+        ts_greater,
+        ts_log,
+        ts_abs,
     )
-    from .cs_function import (              # noqa
+    from .cs_function import (  # noqa # pylint: disable=import-outside-toplevel, possibly-unused-variable
         cs_rank,
         cs_mean,
-        cs_std
+        cs_std,
     )
-    from .ta_function import (              # noqa
-        ta_rsi,
-        ta_atr
-    )
+    from .ta_function import ta_rsi, ta_atr  # noqa # pylint: disable=import-outside-toplevel, possibly-unused-variable
 
     # Extract feature objects to local space
     d: dict = locals()
@@ -152,13 +157,11 @@ def calculate_by_expression(df: pl.DataFrame, expression: str) -> pl.DataFrame:
     return other.df
 
 
-def calculate_by_polars(df: pl.DataFrame, expression: pl.expr.expr.Expr) -> pl.DataFrame:
+def calculate_by_polars(
+    df: pl.DataFrame, expression: pl.expr.expr.Expr
+) -> pl.DataFrame:
     """Execute calculation based on Polars expression"""
-    return df.select([
-        "datetime",
-        "vt_symbol",
-        expression.alias("data")
-    ])
+    return df.select(["datetime", "vt_symbol", expression.alias("data")])
 
 
 def to_datetime(arg: datetime | str) -> datetime:

@@ -1,14 +1,18 @@
 from datetime import datetime
 
-import pyqtgraph as pg      # type: ignore
+import pyqtgraph as pg  # type: ignore
 
 from vnpy.trader.ui import QtGui, QtWidgets, QtCore
 from vnpy.trader.object import BarData
 
 from .manager import BarManager
 from .base import (
-    GREY_COLOR, WHITE_COLOR, CURSOR_COLOR, BLACK_COLOR,
-    to_int, NORMAL_FONT
+    GREY_COLOR,
+    WHITE_COLOR,
+    CURSOR_COLOR,
+    BLACK_COLOR,
+    to_int,
+    NORMAL_FONT,
 )
 from .axis import DatetimeAxis
 from .item import ChartItem
@@ -19,6 +23,7 @@ pg.setConfigOptions(antialias=True)
 
 class ChartWidget(pg.PlotWidget):
     """"""
+
     MIN_BAR_COUNT = 100
 
     def __init__(self, parent: QtWidgets.QWidget | None = None) -> None:
@@ -34,8 +39,8 @@ class ChartWidget(pg.PlotWidget):
         self._first_plot: pg.PlotItem | None = None
         self._cursor: ChartCursor | None = None
 
-        self._right_ix: int = 0                     # Index of most right data
-        self._bar_count: int = self.MIN_BAR_COUNT   # Total bar visible in chart
+        self._right_ix: int = 0  # Index of most right data
+        self._bar_count: int = self.MIN_BAR_COUNT  # Total bar visible in chart
 
         self._init_ui()
 
@@ -57,14 +62,15 @@ class ChartWidget(pg.PlotWidget):
         """"""
         if not self._cursor:
             self._cursor = ChartCursor(
-                self, self._manager, self._plots, self._item_plot_map)
+                self, self._manager, self._plots, self._item_plot_map
+            )
 
     def add_plot(
         self,
         plot_name: str,
         minimum_height: int = 80,
         maximum_height: int | None = None,
-        hide_x_axis: bool = False
+        hide_x_axis: bool = False,
     ) -> None:
         """
         Add plot area.
@@ -112,10 +118,7 @@ class ChartWidget(pg.PlotWidget):
         self._layout.addItem(plot)
 
     def add_item(
-        self,
-        item_class: type[ChartItem],
-        item_name: str,
-        plot_name: str
+        self, item_class: type[ChartItem], item_name: str, plot_name: str
     ) -> None:
         """
         Add chart item.
@@ -187,10 +190,7 @@ class ChartWidget(pg.PlotWidget):
             min_value, max_value = item.get_y_range()
 
             plot.setLimits(
-                xMin=-1,
-                xMax=self._manager.get_count(),
-                yMin=min_value,
-                yMax=max_value
+                xMin=-1, xMax=self._manager.get_count(), yMin=min_value, yMax=max_value
             )
 
     def _update_x_range(self) -> None:
@@ -329,7 +329,7 @@ class ChartCursor(QtCore.QObject):
         widget: ChartWidget,
         manager: BarManager,
         plots: dict[str, pg.GraphicsObject],
-        item_plot_map: dict[ChartItem, pg.GraphicsObject]
+        item_plot_map: dict[ChartItem, pg.GraphicsObject],
     ) -> None:
         """"""
         super().__init__()
@@ -383,7 +383,8 @@ class ChartCursor(QtCore.QObject):
         self._y_labels: dict[str, pg.TextItem] = {}
         for plot_name, plot in self._plots.items():
             label: pg.TextItem = pg.TextItem(
-                plot_name, fill=CURSOR_COLOR, color=BLACK_COLOR)
+                plot_name, fill=CURSOR_COLOR, color=BLACK_COLOR
+            )
             label.hide()
             label.setZValue(2)
             label.setFont(NORMAL_FONT)
@@ -391,22 +392,19 @@ class ChartCursor(QtCore.QObject):
             self._y_labels[plot_name] = label
 
         self._x_label: pg.TextItem = pg.TextItem(
-            "datetime", fill=CURSOR_COLOR, color=BLACK_COLOR)
+            "datetime", fill=CURSOR_COLOR, color=BLACK_COLOR
+        )
         self._x_label.hide()
         self._x_label.setZValue(2)
         self._x_label.setFont(NORMAL_FONT)
         plot.addItem(self._x_label, ignoreBounds=True)  # pylint: disable=W0631
 
     def _init_info(self) -> None:
-        """
-        """
+        """ """
         self._infos: dict[str, pg.TextItem] = {}
         for plot_name, plot in self._plots.items():
             info: pg.TextItem = pg.TextItem(
-                "info",
-                color=CURSOR_COLOR,
-                border=CURSOR_COLOR,
-                fill=BLACK_COLOR
+                "info", color=CURSOR_COLOR, border=CURSOR_COLOR, fill=BLACK_COLOR
             )
             info.hide()
             info.setZValue(2)
@@ -496,7 +494,7 @@ class ChartCursor(QtCore.QObject):
                 buf[plot] = item_info_text
             else:
                 if item_info_text:
-                    buf[plot] += ("\n\n" + item_info_text)
+                    buf[plot] += "\n\n" + item_info_text
 
         for plot_name, plot in self._plots.items():
             plot_info_text: str = buf[plot]

@@ -6,9 +6,9 @@ import traceback
 
 import numpy as np
 import polars as pl
-import plotly.graph_objects as go               # type: ignore
-from plotly.subplots import make_subplots       # type: ignore
-from tqdm import tqdm                           # type: ignore
+import plotly.graph_objects as go  # type: ignore
+from plotly.subplots import make_subplots  # type: ignore
+from tqdm import tqdm  # type: ignore
 
 from vnpy.trader.constant import Direction, Offset, Interval, Status
 from vnpy.trader.object import OrderData, TradeData, BarData
@@ -75,7 +75,7 @@ class BacktestingEngine:
         end: datetime,
         capital: int = 1_000_000,
         risk_free: float = 0,
-        annual_days: int = 240
+        annual_days: int = 240,
     ) -> None:
         """Set parameters"""
         self.vt_symbols = vt_symbols
@@ -101,7 +101,9 @@ class BacktestingEngine:
             self.sizes[vt_symbol] = setting["size"]
             self.priceticks[vt_symbol] = setting["pricetick"]
 
-    def add_strategy(self, strategy_class: type, setting: dict, signal_df: pl.DataFrame) -> None:
+    def add_strategy(
+        self, strategy_class: type, setting: dict, signal_df: pl.DataFrame
+    ) -> None:
         """Add strategy"""
         self.strategy_class = strategy_class
         self.strategy = strategy_class(
@@ -128,10 +130,7 @@ class BacktestingEngine:
         empty_symbols: list[str] = []
         for vt_symbol in tqdm(self.vt_symbols, total=len(self.vt_symbols)):
             data: list[BarData] = self.lab.load_bar_data(
-                vt_symbol,
-                self.interval,
-                self.start,
-                self.end
+                vt_symbol, self.interval, self.start, self.end
             )
 
             for bar in data:
@@ -188,11 +187,7 @@ class BacktestingEngine:
 
         for daily_result in self.daily_results.values():
             daily_result.calculate_pnl(
-                pre_closes,
-                start_poses,
-                self.sizes,
-                self.long_rates,
-                self.short_rates
+                pre_closes, start_poses, self.sizes, self.long_rates, self.short_rates
             )
 
             pre_closes = daily_result.close_prices
@@ -202,25 +197,32 @@ class BacktestingEngine:
 
         for daily_result in self.daily_results.values():
             fields: list = [
-                "date", "trade_count", "turnover",
-                "commission", "trading_pnl",
-                "holding_pnl", "total_pnl", "net_pnl"
+                "date",
+                "trade_count",
+                "turnover",
+                "commission",
+                "trading_pnl",
+                "holding_pnl",
+                "total_pnl",
+                "net_pnl",
             ]
             for key in fields:
                 value = getattr(daily_result, key)
                 results[key].append(value)
 
         if results:
-            self.daily_df = pl.DataFrame([
-                pl.Series("date", results["date"], dtype=pl.Date),
-                pl.Series("trade_count", results["trade_count"], dtype=pl.Int64),
-                pl.Series("turnover", results["turnover"], dtype=pl.Float64),
-                pl.Series("commission", results["commission"], dtype=pl.Float64),
-                pl.Series("trading_pnl", results["trading_pnl"], dtype=pl.Float64),
-                pl.Series("holding_pnl", results["holding_pnl"], dtype=pl.Float64),
-                pl.Series("total_pnl", results["total_pnl"], dtype=pl.Float64),
-                pl.Series("net_pnl", results["net_pnl"], dtype=pl.Float64),
-            ])
+            self.daily_df = pl.DataFrame(
+                [
+                    pl.Series("date", results["date"], dtype=pl.Date),
+                    pl.Series("trade_count", results["trade_count"], dtype=pl.Int64),
+                    pl.Series("turnover", results["turnover"], dtype=pl.Float64),
+                    pl.Series("commission", results["commission"], dtype=pl.Float64),
+                    pl.Series("trading_pnl", results["trading_pnl"], dtype=pl.Float64),
+                    pl.Series("holding_pnl", results["holding_pnl"], dtype=pl.Float64),
+                    pl.Series("total_pnl", results["total_pnl"], dtype=pl.Float64),
+                    pl.Series("net_pnl", results["net_pnl"], dtype=pl.Float64),
+                ]
+            )
 
         logger.info("逐日盯市盈亏计算完成")
         return self.daily_df
@@ -261,19 +263,23 @@ class BacktestingEngine:
         df: pl.DataFrame = self.daily_df
 
         if df is not None:
-            df = df.with_columns(
-                # Strategy capital
-                balance=pl.col("net_pnl").cum_sum() + self.capital
-            ).with_columns(
-                # Strategy return
-                pl.col("balance").pct_change().fill_null(0).alias("return"),
-                # Capital high watermark
-                highlevel=pl.col("balance").cum_max()
-            ).with_columns(
-                # Capital drawdown
-                drawdown=pl.col("balance") - pl.col("highlevel"),
-                # Percentage drawdown
-                ddpercent=(pl.col("balance") / pl.col("highlevel") - 1) * 100
+            df = (
+                df.with_columns(
+                    # Strategy capital
+                    balance=pl.col("net_pnl").cum_sum() + self.capital
+                )
+                .with_columns(
+                    # Strategy return
+                    pl.col("balance").pct_change().fill_null(0).alias("return"),
+                    # Capital high watermark
+                    highlevel=pl.col("balance").cum_max(),
+                )
+                .with_columns(
+                    # Capital drawdown
+                    drawdown=pl.col("balance") - pl.col("highlevel"),
+                    # Percentage drawdown
+                    ddpercent=(pl.col("balance") / pl.col("highlevel") - 1) * 100,
+                )
             )
 
             # Check if bankruptcy occurred
@@ -301,7 +307,9 @@ class BacktestingEngine:
             max_drawdown_end = df["date"][max_drawdown_end_idx]
 
             if isinstance(max_drawdown_end, date):
-                max_drawdown_start_idx = cast(int, df.slice(0, max_drawdown_end_idx + 1)["balance"].arg_max())
+                max_drawdown_start_idx = cast(
+                    int, df.slice(0, max_drawdown_end_idx + 1)["balance"].arg_max()
+                )
                 max_drawdown_start = df["date"][max_drawdown_start_idx]
                 max_drawdown_duration = (max_drawdown_end - max_drawdown_start).days
             else:
@@ -326,7 +334,11 @@ class BacktestingEngine:
 
             if return_std:
                 daily_risk_free = self.risk_free / np.sqrt(self.annual_days)
-                sharpe_ratio = (daily_return - daily_risk_free) / return_std * np.sqrt(self.annual_days)
+                sharpe_ratio = (
+                    (daily_return - daily_risk_free)
+                    / return_std
+                    * np.sqrt(self.annual_days)
+                )
             else:
                 sharpe_ratio = 0
 
@@ -409,22 +421,19 @@ class BacktestingEngine:
             rows=4,
             cols=1,
             subplot_titles=["Balance", "Drawdown", "Daily Pnl", "Pnl Distribution"],
-            vertical_spacing=0.06
+            vertical_spacing=0.06,
         )
 
         balance_line = go.Scatter(
-            x=df["date"],
-            y=df["balance"],
-            mode="lines",
-            name="Balance"
+            x=df["date"], y=df["balance"], mode="lines", name="Balance"
         )
         drawdown_scatter = go.Scatter(
             x=df["date"],
             y=df["drawdown"],
             fillcolor="red",
-            fill='tozeroy',
+            fill="tozeroy",
             mode="lines",
-            name="Drawdown"
+            name="Drawdown",
         )
         pnl_bar = go.Bar(y=df["net_pnl"], name="Daily Pnl")
         pnl_histogram = go.Histogram(x=df["net_pnl"], nbinsx=100, name="Days")
@@ -440,7 +449,9 @@ class BacktestingEngine:
     def show_performance(self, benchmark_symbol: str) -> None:
         """Display performance metrics"""
         # Load benchmark prices
-        benchmark_bars: list[BarData] = self.lab.load_bar_data(benchmark_symbol, self.interval, self.start, self.end)
+        benchmark_bars: list[BarData] = self.lab.load_bar_data(
+            benchmark_symbol, self.interval, self.start, self.end
+        )
 
         benchmark_prices: list[float] = []
         for bar in benchmark_bars:
@@ -452,24 +463,35 @@ class BacktestingEngine:
                 # Cumulative return
                 cumulative_return=pl.col("balance").pct_change().cum_sum(),
                 # Cumulative cost
-                cumulative_cost=(pl.col("commission") / pl.col("balance").shift(1)).cum_sum()
-            ).with_columns(
+                cumulative_cost=(
+                    pl.col("commission") / pl.col("balance").shift(1)
+                ).cum_sum(),
+            )
+            .with_columns(
                 # Benchmark price
                 benchmark_price=pl.Series(values=benchmark_prices, dtype=pl.Float64)
-            ).with_columns(
+            )
+            .with_columns(
                 # Benchmark return
                 benchmark_return=pl.col("benchmark_price").pct_change().cum_sum()
-            ).with_columns(
+            )
+            .with_columns(
                 # Excess return
                 excess_return=(pl.col("cumulative_return") - pl.col("benchmark_return"))
-            ).with_columns(
+            )
+            .with_columns(
                 # Net excess return
                 net_excess_return=(pl.col("excess_return") - pl.col("cumulative_cost")),
-            ).with_columns(
+            )
+            .with_columns(
                 # Excess return drawdown
-                excess_return_drawdown=(pl.col("excess_return") - pl.col("excess_return").cum_max()),
+                excess_return_drawdown=(
+                    pl.col("excess_return") - pl.col("excess_return").cum_max()
+                ),
                 # Net excess return drawdown
-                net_excess_return_drawdown=(pl.col("net_excess_return") - pl.col("net_excess_return").cum_max())
+                net_excess_return_drawdown=(
+                    pl.col("net_excess_return") - pl.col("net_excess_return").cum_max()
+                ),
             )
         )
 
@@ -477,39 +499,45 @@ class BacktestingEngine:
         fig: go.Figure = make_subplots(
             rows=5,
             cols=1,
-            subplot_titles=["Return", "Alpha", "Turnover", "Alpha Drawdown", "Alpha Drawdown with Cost"],
-            vertical_spacing=0.06
+            subplot_titles=[
+                "Return",
+                "Alpha",
+                "Turnover",
+                "Alpha Drawdown",
+                "Alpha Drawdown with Cost",
+            ],
+            vertical_spacing=0.06,
         )
 
         strategy_curve: go.Scatter = go.Scatter(
             x=performance_df["date"],
             y=performance_df["cumulative_return"],
             mode="lines",
-            name="Strategy"
+            name="Strategy",
         )
         net_strategy_curve: go.Scatter = go.Scatter(
             x=performance_df["date"],
             y=performance_df["cumulative_return"] - performance_df["cumulative_cost"],
             mode="lines",
-            name="Strategy with Cost"
+            name="Strategy with Cost",
         )
         benchmark_curve: go.Scatter = go.Scatter(
             x=performance_df["date"],
             y=performance_df["benchmark_return"],
             mode="lines",
-            name="Benchmark"
+            name="Benchmark",
         )
         excess_curve: go.Scatter = go.Scatter(
             x=performance_df["date"],
             y=performance_df["excess_return"],
             mode="lines",
-            name="Alpha"
+            name="Alpha",
         )
         net_excess_curve: go.Scatter = go.Scatter(
             x=performance_df["date"],
             y=performance_df["net_excess_return"],
             mode="lines",
-            name="Alpha with Cost"
+            name="Alpha with Cost",
         )
         turnover_curve: go.Scatter = go.Scatter(
             x=self.daily_df["date"],
@@ -519,16 +547,16 @@ class BacktestingEngine:
         excess_drawdown_curve: go.Scatter = go.Scatter(
             x=performance_df["date"],
             y=performance_df["excess_return_drawdown"],
-            fill='tozeroy',
+            fill="tozeroy",
             mode="lines",
-            name="Alpha Drawdown"
+            name="Alpha Drawdown",
         )
         net_excess_drawdown_curve: go.Scatter = go.Scatter(
             x=performance_df["date"],
             y=performance_df["net_excess_return_drawdown"],
-            fill='tozeroy',
+            fill="tozeroy",
             mode="lines",
-            name="Alpha Drawdown with Cost"
+            name="Alpha Drawdown with Cost",
         )
 
         fig.add_trace(strategy_curve, row=1, col=1)
@@ -545,16 +573,16 @@ class BacktestingEngine:
             width=1200,
             plot_bgcolor="white",
             paper_bgcolor="white",
-            xaxis=dict(showgrid=True, gridwidth=1, gridcolor='LightGray'),
-            xaxis2=dict(showgrid=True, gridwidth=1, gridcolor='LightGray'),
-            xaxis3=dict(showgrid=True, gridwidth=1, gridcolor='LightGray'),
-            xaxis4=dict(showgrid=True, gridwidth=1, gridcolor='LightGray'),
-            xaxis5=dict(showgrid=True, gridwidth=1, gridcolor='LightGray'),
-            yaxis=dict(showgrid=True, gridwidth=1, gridcolor='LightGray'),
-            yaxis2=dict(showgrid=True, gridwidth=1, gridcolor='LightGray'),
-            yaxis3=dict(showgrid=True, gridwidth=1, gridcolor='LightGray'),
-            yaxis4=dict(showgrid=True, gridwidth=1, gridcolor='LightGray'),
-            yaxis5=dict(showgrid=True, gridwidth=1, gridcolor='LightGray')
+            xaxis=dict(showgrid=True, gridwidth=1, gridcolor="LightGray"),
+            xaxis2=dict(showgrid=True, gridwidth=1, gridcolor="LightGray"),
+            xaxis3=dict(showgrid=True, gridwidth=1, gridcolor="LightGray"),
+            xaxis4=dict(showgrid=True, gridwidth=1, gridcolor="LightGray"),
+            xaxis5=dict(showgrid=True, gridwidth=1, gridcolor="LightGray"),
+            yaxis=dict(showgrid=True, gridwidth=1, gridcolor="LightGray"),
+            yaxis2=dict(showgrid=True, gridwidth=1, gridcolor="LightGray"),
+            yaxis3=dict(showgrid=True, gridwidth=1, gridcolor="LightGray"),
+            yaxis4=dict(showgrid=True, gridwidth=1, gridcolor="LightGray"),
+            yaxis5=dict(showgrid=True, gridwidth=1, gridcolor="LightGray"),
         )
         fig.show()
 
@@ -607,7 +635,7 @@ class BacktestingEngine:
                     high_price=old_bar.close_price,
                     low_price=old_bar.close_price,
                     close_price=old_bar.close_price,
-                    gateway_name=old_bar.gateway_name
+                    gateway_name=old_bar.gateway_name,
                 )
                 self.bars[vt_symbol] = fill_bar
 
@@ -641,16 +669,15 @@ class BacktestingEngine:
             # Check limit orders that can be matched
             long_cross: bool = (
                 order.direction == Direction.LONG
-                and order.price >= long_cross_price
-                and long_cross_price > 0
-                and bar.low_price < limit_up        # Not a full-day limit-up market
+                and order.price >= long_cross_price > 0
+                and bar.low_price < limit_up  # Not a full-day limit-up market
             )
 
             short_cross: bool = (
                 order.direction == Direction.SHORT
                 and order.price <= short_cross_price
                 and short_cross_price > 0
-                and bar.high_price > limit_down     # Not a full-day limit-down market
+                and bar.high_price > limit_down  # Not a full-day limit-down market
             )
 
             if not long_cross and not short_cross:
@@ -691,7 +718,9 @@ class BacktestingEngine:
             trade_turnover: float = trade.price * trade.volume * size
 
             if trade.direction == Direction.LONG:
-                trade_commission: float = trade_turnover * self.long_rates[trade.vt_symbol]
+                trade_commission: float = (
+                    trade_turnover * self.long_rates[trade.vt_symbol]
+                )
             else:
                 trade_commission = trade_turnover * self.short_rates[trade.vt_symbol]
 
@@ -829,7 +858,7 @@ class ContractDailyResult:
         start_pos: float,
         size: float,
         long_rate: float,
-        short_rate: float
+        short_rate: float,
     ) -> None:
         """Calculate profit and loss"""
         # If there is no previous close price, use 1 instead to avoid division error
@@ -886,7 +915,9 @@ class PortfolioDailyResult:
         self.contract_results: dict[str, ContractDailyResult] = {}
 
         for vt_symbol, close_price in close_prices.items():
-            self.contract_results[vt_symbol] = ContractDailyResult(result_date, close_price)
+            self.contract_results[vt_symbol] = ContractDailyResult(
+                result_date, close_price
+            )
 
         self.trade_count: int = 0
         self.turnover: float = 0
@@ -907,7 +938,7 @@ class PortfolioDailyResult:
         start_poses: dict[str, float],
         sizes: dict[str, float],
         long_rates: dict[str, float],
-        short_rates: dict[str, float]
+        short_rates: dict[str, float],
     ) -> None:
         """Calculate profit and loss"""
         self.pre_closes = pre_closes
@@ -919,7 +950,7 @@ class PortfolioDailyResult:
                 start_poses.get(vt_symbol, 0),
                 sizes[vt_symbol],
                 long_rates[vt_symbol],
-                short_rates[vt_symbol]
+                short_rates[vt_symbol],
             )
 
             self.trade_count += contract_result.trade_count
@@ -937,8 +968,12 @@ class PortfolioDailyResult:
         self.close_prices.update(close_prices)
 
         for vt_symbol, close_price in close_prices.items():
-            contract_result: ContractDailyResult | None = self.contract_results.get(vt_symbol, None)
+            contract_result: ContractDailyResult | None = self.contract_results.get(
+                vt_symbol, None
+            )
             if contract_result:
                 contract_result.update_close_price(close_price)
             else:
-                self.contract_results[vt_symbol] = ContractDailyResult(self.date, close_price)
+                self.contract_results[vt_symbol] = ContractDailyResult(
+                    self.date, close_price
+                )

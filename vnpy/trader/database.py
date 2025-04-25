@@ -73,7 +73,7 @@ class BaseDatabase(ABC):
         exchange: Exchange,
         interval: Interval,
         start: datetime,
-        end: datetime
+        end: datetime,
     ) -> list[BarData]:
         """
         Load bar data from database.
@@ -81,11 +81,7 @@ class BaseDatabase(ABC):
 
     @abstractmethod
     def load_tick_data(
-        self,
-        symbol: str,
-        exchange: Exchange,
-        start: datetime,
-        end: datetime
+        self, symbol: str, exchange: Exchange, start: datetime, end: datetime
     ) -> list[TickData]:
         """
         Load tick data from database.
@@ -93,21 +89,14 @@ class BaseDatabase(ABC):
 
     @abstractmethod
     def delete_bar_data(
-        self,
-        symbol: str,
-        exchange: Exchange,
-        interval: Interval
+        self, symbol: str, exchange: Exchange, interval: Interval
     ) -> int:
         """
         Delete all bar data with given symbol + exchange + interval.
         """
 
     @abstractmethod
-    def delete_tick_data(
-        self,
-        symbol: str,
-        exchange: Exchange
-    ) -> int:
+    def delete_tick_data(self, symbol: str, exchange: Exchange) -> int:
         """
         Delete all tick data with given symbol + exchange.
         """

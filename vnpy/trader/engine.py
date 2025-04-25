@@ -1,12 +1,8 @@
 import re
-import logging
-from logging import Logger
 import smtplib
 import os
 import traceback
 from abc import ABC, abstractmethod
-from pathlib import Path
-from datetime import datetime
 from email.message import EmailMessage
 from queue import Empty, Queue
 from threading import Thread
@@ -49,7 +45,7 @@ from .object import (
     MarginRate,
 )
 from .setting import SETTINGS
-from .utility import get_folder_path, TRADER_DIR, extract_vt_symbol
+from .utility import TRADER_DIR, extract_vt_symbol
 from .converter import OffsetConverter
 from .logger import logger, DEBUG, INFO, WARNING, ERROR, CRITICAL
 from .locale import _
@@ -105,11 +101,13 @@ class MainEngine:
         """
         Add function engine.
         """
-        engine: EngineType = engine_class(self, self.event_engine)      # type: ignore
+        engine: EngineType = engine_class(self, self.event_engine)  # type: ignore
         self.engines[engine.engine_name] = engine
         return engine
 
-    def add_gateway(self, gateway_class: type[BaseGateway], gateway_name: str = "") -> BaseGateway:
+    def add_gateway(
+        self, gateway_class: type[BaseGateway], gateway_name: str = ""
+    ) -> BaseGateway:
         """
         Add gateway.
         """
@@ -163,28 +161,53 @@ class MainEngine:
         self.get_tick: Callable[[str], TickData | None] = oms_engine.get_tick
         self.get_order: Callable[[str], OrderData | None] = oms_engine.get_order
         self.get_trade: Callable[[str], TradeData | None] = oms_engine.get_trade
-        self.get_position: Callable[[str], PositionData | None] = oms_engine.get_position
+        self.get_position: Callable[[str], PositionData | None] = (
+            oms_engine.get_position
+        )
         self.get_account: Callable[[str], AccountData | None] = oms_engine.get_account
-        self.get_contract: Callable[[str], ContractData | None] = oms_engine.get_contract
+        self.get_contract: Callable[[str], ContractData | None] = (
+            oms_engine.get_contract
+        )
         self.get_quote: Callable[[str], QuoteData | None] = oms_engine.get_quote
-        self.get_marginrate: Callable[[str] = oms_engine.get_marginrate
-        self.get_commission: Callable[[str] = oms_engine.get_commission
+        self.get_marginrate: Callable[[str], MarginRate | None] = (
+            oms_engine.get_marginrate
+        )
+        self.get_commission: Callable[[str], Commission | None] = (
+            oms_engine.get_commission
+        )
         self.get_all_ticks: Callable[[], list[TickData]] = oms_engine.get_all_ticks
         self.get_all_orders: Callable[[], list[OrderData]] = oms_engine.get_all_orders
         self.get_all_trades: Callable[[], list[TradeData]] = oms_engine.get_all_trades
-        self.get_all_positions: Callable[[], list[PositionData]] = oms_engine.get_all_positions
-        self.get_all_accounts: Callable[[], list[AccountData]] = oms_engine.get_all_accounts
-        self.get_all_contracts: Callable[[], list[ContractData]] = oms_engine.get_all_contracts
+        self.get_all_positions: Callable[[], list[PositionData]] = (
+            oms_engine.get_all_positions
+        )
+        self.get_all_accounts: Callable[[], list[AccountData]] = (
+            oms_engine.get_all_accounts
+        )
+        self.get_all_contracts: Callable[[], list[ContractData]] = (
+            oms_engine.get_all_contracts
+        )
         self.get_all_quotes: Callable[[], list[QuoteData]] = oms_engine.get_all_quotes
-        self.get_all_active_orders: Callable[[], list[OrderData]] = oms_engine.get_all_active_orders
-        self.get_all_active_quotes: Callable[[], list[QuoteData]] = oms_engine.get_all_active_quotes
-        self.update_order_request: Callable[[OrderRequest, str, str], None] = oms_engine.update_order_request
-        self.convert_order_request: Callable[[OrderRequest, str, bool, bool], list[OrderRequest]] = oms_engine.convert_order_request
-        self.get_converter: Callable[[str], OffsetConverter | None] = oms_engine.get_converter
-
+        self.get_all_active_orders: Callable[[], list[OrderData]] = (
+            oms_engine.get_all_active_orders
+        )
+        self.get_all_active_quotes: Callable[[], list[QuoteData]] = (
+            oms_engine.get_all_active_quotes
+        )
+        self.update_order_request: Callable[[OrderRequest, str, str], None] = (
+            oms_engine.update_order_request
+        )
+        self.convert_order_request: Callable[
+            [OrderRequest, str, bool, bool], list[OrderRequest]
+        ] = oms_engine.convert_order_request
+        self.get_converter: Callable[[str], OffsetConverter | None] = (
+            oms_engine.get_converter
+        )
 
         email_engine: EmailEngine = self.add_engine(EmailEngine)
-        self.send_email: Callable[[str, str, str | None], None] = email_engine.send_email
+        self.send_email: Callable[[str, str, str | None], None] = (
+            email_engine.send_email
+        )
 
     def write_log(self, msg: str, source: str = "") -> None:
         """
@@ -212,7 +235,9 @@ class MainEngine:
             self.write_log(_("找不到引擎：{}").format(engine_name))
         return engine
 
-    def get_default_setting(self, gateway_name: str) -> dict[str, str | bool | int | float] | None:
+    def get_default_setting(
+        self, gateway_name: str
+    ) -> dict[str, str | bool | int | float] | None:
         """
         Get default setting dict of a specific gateway.
         """
@@ -358,7 +383,7 @@ class OmsEngine(BaseEngine):
 
     def __init__(self, main_engine: MainEngine, event_engine: EventEngine) -> None:
         """"""
-        super(OmsEngine, self).__init__(main_engine, event_engine, "oms")
+        super().__init__(main_engine, event_engine, "oms")
 
         self.ticks: dict[str, TickData] = {}
         self.orders: dict[str, OrderData] = {}
@@ -389,7 +414,9 @@ class OmsEngine(BaseEngine):
         self.event_engine.register(EVENT_QUOTE, self.process_quote_event)
         self.event_engine.register(EVENT_COMMISION, self.process_commission_event)
         self.event_engine.register(EVENT_MARGINRATE, self.process_marginrate_event)
-        self.event_engine.register(EVENT_GATEWAY_CONNECTED, self.process_gateway_connected_event)
+        self.event_engine.register(
+            EVENT_GATEWAY_CONNECTED, self.process_gateway_connected_event
+        )
 
     def process_tick_event(self, event: Event) -> None:
         """"""
@@ -409,7 +436,9 @@ class OmsEngine(BaseEngine):
             self.active_orders.pop(order.vt_orderid)
 
         # Update to offset converter
-        converter: OffsetConverter | None = self.offset_converters.get(order.gateway_name, None)
+        converter: OffsetConverter | None = self.offset_converters.get(
+            order.gateway_name, None
+        )
         if converter:
             converter.update_order(order)
 
@@ -419,7 +448,9 @@ class OmsEngine(BaseEngine):
         self.trades[trade.vt_tradeid] = trade
 
         # Update to offset converter
-        converter: OffsetConverter | None = self.offset_converters.get(trade.gateway_name, None)
+        converter: OffsetConverter | None = self.offset_converters.get(
+            trade.gateway_name, None
+        )
         if converter:
             converter.update_trade(trade)
 
@@ -429,7 +460,9 @@ class OmsEngine(BaseEngine):
         self.positions[position.vt_positionid] = position
 
         # Update to offset converter
-        converter: OffsetConverter | None = self.offset_converters.get(position.gateway_name, None)
+        converter: OffsetConverter | None = self.offset_converters.get(
+            position.gateway_name, None
+        )
         if converter:
             converter.update_position(position)
 
@@ -444,8 +477,12 @@ class OmsEngine(BaseEngine):
         contract: ContractData = event.data
         if contract.vt_symbol in self.contracts:
             old_contract = self.contracts[contract.vt_symbol]
-            self.main_engine.write_log(f"合约{contract.vt_symbol}已存在，下单途径{old_contract.gateway_name}->{contract.gateway_name}")
-            self.contract_gateway_map.setdefault(contract.symbol, []).append(contract.gateway_name)
+            self.main_engine.write_log(
+                f"合约{contract.vt_symbol}已存在，下单途径{old_contract.gateway_name}->{contract.gateway_name}"
+            )
+            self.contract_gateway_map.setdefault(contract.symbol, []).append(
+                contract.gateway_name
+            )
         self.contracts[contract.vt_symbol] = contract
 
         # Initialize offset converter for each gateway
@@ -467,13 +504,21 @@ class OmsEngine(BaseEngine):
     def process_commission_event(self, event: Event):
         if event.data:
             commission: Commission = event.data
-            key = commission.symbol if commission.exchange == Exchange.UNKNOWN else commission.vt_symbol
+            key = (
+                commission.symbol
+                if commission.exchange == Exchange.UNKNOWN
+                else commission.vt_symbol
+            )
             self.commission_calculators[key] = commission
 
     def process_marginrate_event(self, event: Event):
         if event.data:
             marginrate: MarginRate = event.data
-            key = marginrate.symbol if marginrate.exchange == Exchange.UNKNOWN else marginrate.vt_symbol
+            key = (
+                marginrate.symbol
+                if marginrate.exchange == Exchange.UNKNOWN
+                else marginrate.vt_symbol
+            )
             self.margin_calculators[key] = marginrate
 
     def process_gateway_connected_event(self, event: Event):
@@ -551,7 +596,9 @@ class OmsEngine(BaseEngine):
             contract: ContractData = self.contracts[vt_symbol]
             gw: BaseGateway = self.main_engine.get_gateway(contract.gateway_name)
             if gw:
-                gw.query_commission(SubscribeRequest(contract.symbol, contract.exchange))
+                gw.query_commission(
+                    SubscribeRequest(contract.symbol, contract.exchange)
+                )
         category = re.match(r"([a-zA-Z]+)\d+", symbol).group(1)
         if exch != Exchange.UNKNOWN:
             sym = f"{category}.{exch.value}"
@@ -609,7 +656,7 @@ class OmsEngine(BaseEngine):
         if not vt_symbol:
             return list(self.active_orders.values())
         else:
-            active_orders: List[OrderData] = [
+            active_orders: list[OrderData] = [
                 order
                 for order in self.active_orders.values()
                 if order.vt_symbol == vt_symbol
@@ -625,29 +672,33 @@ class OmsEngine(BaseEngine):
             return list(self.active_quotes.values())
         else:
             active_quotes: list[QuoteData] = [
-                quote for quote in self.active_quotes.values() if quote.vt_symbol == vt_symbol
+                quote
+                for quote in self.active_quotes.values()
+                if quote.vt_symbol == vt_symbol
             ]
             return active_quotes
 
-    def update_order_request(self, req: OrderRequest, vt_orderid: str, gateway_name: str) -> None:
+    def update_order_request(
+        self, req: OrderRequest, vt_orderid: str, gateway_name: str
+    ) -> None:
         """
         Update order request to offset converter.
         """
-        converter: OffsetConverter | None = self.offset_converters.get(gateway_name, None)
+        converter: OffsetConverter | None = self.offset_converters.get(
+            gateway_name, None
+        )
         if converter:
             converter.update_order_request(req, vt_orderid)
 
     def convert_order_request(
-        self,
-        req: OrderRequest,
-        gateway_name: str,
-        lock: bool,
-        net: bool = False
+        self, req: OrderRequest, gateway_name: str, lock: bool, net: bool = False
     ) -> list[OrderRequest]:
         """
         Convert original order request according to given mode.
         """
-        converter: OffsetConverter | None = self.offset_converters.get(gateway_name, None)
+        converter: OffsetConverter | None = self.offset_converters.get(
+            gateway_name, None
+        )
         if not converter:
             return [req]
 
@@ -674,7 +725,9 @@ class EmailEngine(BaseEngine):
         self.queue: Queue = Queue()
         self.active: bool = False
 
-    def send_email(self, subject: str, content: str, receiver: str | None = None) -> None:
+    def send_email(
+        self, subject: str, content: str, receiver: str | None = None
+    ) -> None:
         """"""
         # Start email engine when sending first email.
         if not self.active:

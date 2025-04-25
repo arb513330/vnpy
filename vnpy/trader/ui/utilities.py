@@ -1,11 +1,11 @@
-# -*- coding: utf-8 -*-
 # @Time    : 2024/3/1 14:57
 # @Author  : YQ Tsui
 # @File    : utilities.py
 # @Purpose : Utility objects for UIs.
 
 from .qt import QtCore, QtWidgets, QtGui
-from typing import Any, Tuple, Callable, Dict
+from typing import Any
+from collections.abc import Callable
 from enum import Enum
 
 
@@ -23,7 +23,6 @@ class RegisteredQWidgetType(Enum):
 
 
 class VNPasswordField(QtWidgets.QFrame):
-
     def __init__(self, parent: QtWidgets.QWidget = None):
         super().__init__(parent)
         self.initUI()
@@ -69,7 +68,9 @@ class CellStyler:
     Base cell style.
     """
 
-    def __call__(self, cell: QtWidgets.QTableWidgetItem, value: Any) -> QtWidgets.QTableWidgetItem:
+    def __call__(
+        self, cell: QtWidgets.QTableWidgetItem, value: Any
+    ) -> QtWidgets.QTableWidgetItem:
         """
         Apply style to cell.
         """
@@ -86,13 +87,17 @@ class CellStylerNumeric(CellStyler):
     def __init__(
         self,
         text_formatter: Callable[[Any], str] = None,
-        text_color: Tuple[int, int, int] = None,
-        background_color: Tuple[int, int, int] = None,
+        text_color: tuple[int, int, int] = None,
+        background_color: tuple[int, int, int] = None,
     ) -> None:
         """"""
         self.text_formatter = text_formatter
-        self.text_color = QtGui.QBrush(QtGui.QColor(*text_color)) if text_color else None
-        self.background_color = QtGui.QColor(*background_color) if background_color else None
+        self.text_color = (
+            QtGui.QBrush(QtGui.QColor(*text_color)) if text_color else None
+        )
+        self.background_color = (
+            QtGui.QColor(*background_color) if background_color else None
+        )
 
     def __call__(self, cell, value) -> QtWidgets.QTableWidgetItem:
         """
@@ -117,7 +122,9 @@ class CellStylerConditional(CellStyler):
     Text cell style with conditional text color.
     """
 
-    def __init__(self, conditioner: Callable[[Any], int], styler_mappings: Dict[int, CellStyler]) -> None:
+    def __init__(
+        self, conditioner: Callable[[Any], int], styler_mappings: dict[int, CellStyler]
+    ) -> None:
         """"""
         self.conditioner = conditioner
         self.styler_mappings = styler_mappings

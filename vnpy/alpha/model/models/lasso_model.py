@@ -1,13 +1,8 @@
 import numpy as np
 import polars as pl
-from sklearn.linear_model import Lasso      # type: ignore
+from sklearn.linear_model import Lasso  # type: ignore
 
-from vnpy.alpha import (
-    AlphaDataset,
-    AlphaModel,
-    Segment,
-    logger
-)
+from vnpy.alpha import AlphaDataset, AlphaModel, Segment, logger
 
 
 class LassoModel(AlphaModel):
@@ -68,7 +63,7 @@ class LassoModel(AlphaModel):
             max_iter=self.max_iter,
             random_state=self.random_state,
             fit_intercept=False,
-            copy_X=False
+            copy_X=False,
         )
         self.model.fit(X, y)
 
@@ -102,7 +97,7 @@ class LassoModel(AlphaModel):
         df = df.sort(["datetime", "vt_symbol"])
 
         # Convert to numpy array
-        data: np.ndarray = df.select(df.columns[2: -1]).to_numpy()
+        data: np.ndarray = df.select(df.columns[2:-1]).to_numpy()
 
         # Return prediction results
         result: np.ndarray = self.model.predict(data)
@@ -121,7 +116,9 @@ class LassoModel(AlphaModel):
         coef: np.ndarray = self.model.coef_
 
         # Extract feature coefficients
-        data: list[tuple[str, float]] = list(zip(self.feature_names, coef, strict=False))
+        data: list[tuple[str, float]] = list(
+            zip(self.feature_names, coef, strict=False)
+        )
 
         # Filter non-zero features
         data = [x for x in data if x[1]]

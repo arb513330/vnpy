@@ -69,7 +69,9 @@ def main(init_apps=(), init_gateways=(), skip_selection=False):
             main_engine.add_app(getattr(app_module, f"{app}App"))
 
     if skip_selection:
-        add_components_to_main_engine({"gateways": init_gateways, "apps": init_apps}, main_engine=main_engine)
+        add_components_to_main_engine(
+            {"gateways": init_gateways, "apps": init_apps}, main_engine=main_engine
+        )
     else:
         dialog = GatewayAppSelectPanel(
             available_gateways=gw_candidates,
@@ -77,7 +79,9 @@ def main(init_apps=(), init_gateways=(), skip_selection=False):
             selected_apps=init_apps,
             selected_gateways=init_gateways,
         )
-        dialog.checkbox_values_signal.connect(partial(add_components_to_main_engine, main_engine=main_engine))
+        dialog.checkbox_values_signal.connect(
+            partial(add_components_to_main_engine, main_engine=main_engine)
+        )
         dialog.exec()
 
     main_window = MainWindow(main_engine, event_engine)
@@ -89,7 +93,11 @@ def main(init_apps=(), init_gateways=(), skip_selection=False):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Veighna Trader App Starter")
     parser.add_argument(
-        "-a", "--apps", nargs="+", default=[], help="apps to initialize, available apps: " + ", ".join(app_candidates)
+        "-a",
+        "--apps",
+        nargs="+",
+        default=[],
+        help="apps to initialize, available apps: " + ", ".join(app_candidates),
     )
     parser.add_argument(
         "-g",
@@ -98,6 +106,12 @@ if __name__ == "__main__":
         default=[],
         help="gateways to initialize, available gateways: " + ", ".join(gw_candidates),
     )
-    parser.add_argument("--skip-selection", action="store_true", help="Skip gateway and app selection")
+    parser.add_argument(
+        "--skip-selection", action="store_true", help="Skip gateway and app selection"
+    )
     args = parser.parse_args()
-    main(init_apps=args.apps, init_gateways=args.gateways, skip_selection=args.skip_selection)
+    main(
+        init_apps=args.apps,
+        init_gateways=args.gateways,
+        skip_selection=args.skip_selection,
+    )

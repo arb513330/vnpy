@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from copy import copy
 
 from vnpy.event import Event, EventEngine
 from .event import (
@@ -244,6 +243,7 @@ class BaseGateway(ABC):
         """
         return ""
 
+    @abstractmethod
     def cancel_quote(self, req: CancelRequest) -> None:
         """
         Cancel an existing quote.
@@ -273,11 +273,13 @@ class BaseGateway(ABC):
         """
         Query margin requirement of instrument
         """
+        return None
 
     def query_commission(self, req: SubscribeRequest) -> None:
         """
         Query commission rate of instrument
         """
+        return None
 
     def get_default_setting(self) -> dict[str, str | int | float | bool]:
         """

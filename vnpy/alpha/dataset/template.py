@@ -7,17 +7,12 @@ from multiprocessing.context import BaseContext
 
 import polars as pl
 import pandas as pd
-from tqdm import tqdm                                               # type: ignore
-from alphalens.utils import get_clean_factor_and_forward_returns    # type: ignore
-from alphalens.tears import create_full_tear_sheet                  # type: ignore
+from tqdm import tqdm  # type: ignore
+from alphalens.utils import get_clean_factor_and_forward_returns  # type: ignore
+from alphalens.tears import create_full_tear_sheet  # type: ignore
 
 from ..logger import logger
-from .utility import (
-    to_datetime,
-    Segment,
-    calculate_by_expression,
-    calculate_by_polars
-)
+from .utility import to_datetime, Segment, calculate_by_expression, calculate_by_polars
 
 
 class AlphaDataset:
@@ -29,7 +24,7 @@ class AlphaDataset:
         train_period: tuple[str, str],
         valid_period: tuple[str, str],
         test_period: tuple[str, str],
-        process_type: str = "append"
+        process_type: str = "append",
     ) -> None:
         """Constructor"""
         self.df: pl.DataFrame = df
@@ -44,7 +39,7 @@ class AlphaDataset:
         self.data_periods: dict[Segment, tuple[str, str]] = {
             Segment.TRAIN: train_period,
             Segment.VALID: valid_period,
-            Segment.TEST: test_period
+            Segment.TEST: test_period,
         }
 
         self.feature_expressions: dict[str, str | pl.expr.expr.Expr] = {}
@@ -59,7 +54,7 @@ class AlphaDataset:
         self,
         name: str,
         expression: str | pl.expr.expr.Expr | None = None,
-        result: pl.DataFrame | None = None
+        result: pl.DataFrame | None = None,
     ) -> None:
         """
         Add a feature expression
@@ -78,7 +73,9 @@ class AlphaDataset:
         """
         self.label_expression = expression
 
-    def add_processor(self, task: str, processor: Callable[[pl.DataFrame], None]) -> None:
+    def add_processor(
+        self, task: str, processor: Callable[[pl.DataFrame], None]
+    ) -> None:
         """
         Add a feature preprocessor
         """
@@ -87,7 +84,9 @@ class AlphaDataset:
         else:
             self.learn_processors.append(processor)
 
-    def prepare_data(self, filters: dict | None = None, max_workers: int | None = None) -> None:
+    def prepare_data(
+        self, filters: dict | None = None, max_workers: int | None = None
+    ) -> None:
         """
         Generate required data
         """
@@ -95,7 +94,9 @@ class AlphaDataset:
         results: list = []
 
         # Iterate through expressions for calculation
-        expressions: list[tuple[str, str | pl.expr.expr.Expr]] = list(self.feature_expressions.items())
+        expressions: list[tuple[str, str | pl.expr.expr.Expr]] = list(
+            self.feature_expressions.items()
+        )
 
         if self.label_expression:
             expressions.append(("label", self.label_expression))
@@ -103,7 +104,9 @@ class AlphaDataset:
         # Create process pool
         logger.info("开始计算表达式因子特征")
 
-        args: list[tuple] = [(self.df, name, expression) for name, expression in expressions]
+        args: list[tuple] = [
+            (self.df, name, expression) for name, expression in expressions
+        ]
 
         context: BaseContext = get_context("spawn")
 
@@ -122,7 +125,9 @@ class AlphaDataset:
 
         for name, result in tqdm(self.feature_results.items()):
             result = result.rename({"data": name})
-            self.result_df = self.result_df.join(result, on=["datetime", "vt_symbol"], how="inner")
+            self.result_df = self.result_df.join(
+                result, on=["datetime", "vt_symbol"], how="inner"
+            )
 
         # Generate raw data
         raw_df = self.result_df.fill_null(float("nan"))
@@ -135,14 +140,18 @@ class AlphaDataset:
             for vt_symbol, ranges in tqdm(filters.items(), total=len(filters)):
                 for start, end in ranges:
                     temp_df = raw_df.filter(
-                        (pl.col("vt_symbol") == vt_symbol) & (pl.col("datetime") >= pl.lit(start)) & (pl.col("datetime") <= pl.lit(end))
+                        (pl.col("vt_symbol") == vt_symbol)
+                        & (pl.col("datetime") >= pl.lit(start))
+                        & (pl.col("datetime") <= pl.lit(end))
                     )
                     filtered_df = pl.concat([filtered_df, temp_df])
 
             raw_df = filtered_df
 
         # Only keep feature columns
-        select_columns: list[str] = ["datetime", "vt_symbol"] + raw_df.columns[self.df.width:]
+        select_columns: list[str] = ["datetime", "vt_symbol"] + raw_df.columns[
+            self.df.width :
+        ]
         self.raw_df = raw_df.select(select_columns).sort(["datetime", "vt_symbol"])
 
         # Generate inference data
@@ -198,17 +207,23 @@ class AlphaDataset:
         df: pl.DataFrame = query_by_time(self.result_df, start, end)
 
         # Extract feature
-        feature_df: pd.DataFrame = df.select(["datetime", "vt_symbol", name]).to_pandas()
+        feature_df: pd.DataFrame = df.select(
+            ["datetime", "vt_symbol", name]
+        ).to_pandas()
         feature_df.set_index(["datetime", "vt_symbol"], inplace=True)
 
         feature_s: pd.Series = feature_df[name]
 
         # Extract price
-        price_df: pd.DataFrame = df.select(["datetime", "vt_symbol", "close"]).to_pandas()
+        price_df: pd.DataFrame = df.select(
+            ["datetime", "vt_symbol", "close"]
+        ).to_pandas()
         price_df = price_df.pivot(index="datetime", columns="vt_symbol", values="close")
 
         # Merge data
-        clean_data: pd.DataFrame = get_clean_factor_and_forward_returns(feature_s, price_df, quantiles=10)
+        clean_data: pd.DataFrame = get_clean_factor_and_forward_returns(
+            feature_s, price_df, quantiles=10
+        )
 
         # Perform analysis
         create_full_tear_sheet(clean_data)
@@ -230,22 +245,23 @@ class AlphaDataset:
         signal_s: pd.Series = signal_df["signal"]
 
         # Extract price
-        price_df: pd.DataFrame = df.select(["datetime", "vt_symbol", "close"]).to_pandas()
+        price_df: pd.DataFrame = df.select(
+            ["datetime", "vt_symbol", "close"]
+        ).to_pandas()
         price_df = price_df.pivot(index="datetime", columns="vt_symbol", values="close")
 
         # Merge data
         clean_data: pd.DataFrame = get_clean_factor_and_forward_returns(
-            signal_s,
-            price_df,
-            max_loss=1.0,
-            quantiles=10
+            signal_s, price_df, max_loss=1.0, quantiles=10
         )
 
         # Perform analysis
         create_full_tear_sheet(clean_data)
 
 
-def query_by_time(df: pl.DataFrame, start: datetime | str = "", end: datetime | str = "") -> pl.DataFrame:
+def query_by_time(
+    df: pl.DataFrame, start: datetime | str = "", end: datetime | str = ""
+) -> pl.DataFrame:
     """
     Filter DataFrame based on time range
     """
@@ -260,7 +276,9 @@ def query_by_time(df: pl.DataFrame, start: datetime | str = "", end: datetime | 
     return df.sort(["datetime", "vt_symbol"])
 
 
-def calculate_feature(args: tuple[pl.DataFrame, str, str | pl.expr.expr.Expr]) -> pl.Series:
+def calculate_feature(
+    args: tuple[pl.DataFrame, str, str | pl.expr.expr.Expr],
+) -> pl.Series:
     """
     Calculate feature by expression
     """

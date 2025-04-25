@@ -14,14 +14,13 @@ class AlphaModel(metaclass=ABCMeta):
         """
         Fit the model with dataset
         """
-        pass
 
     @abstractmethod
     def predict(self, dataset: AlphaDataset, segment: Segment) -> np.ndarray:
         """
         Make predictions using the model
         """
-        pass
+        return np.array([])
 
     def detail(self) -> Any:
         """

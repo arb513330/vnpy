@@ -43,7 +43,7 @@ class AlphaLab:
             self.component_path,
             self.dataset_path,
             self.model_path,
-            self.signal_path
+            self.signal_path,
         ]:
             if not path.exists():
                 path.mkdir(parents=True)
@@ -59,8 +59,8 @@ class AlphaLab:
         if bar.interval == Interval.DAILY:
             file_path: Path = self.daily_path.joinpath(f"{bar.vt_symbol}.parquet")
         elif bar.interval == Interval.MINUTE:
-            file_path = self.minute_path.joinpath(f"{bar.vt_symbol}.parquet")
-        elif bar.interval:
+            file_path: Path = self.minute_path.joinpath(f"{bar.vt_symbol}.parquet")
+        else:
             logger.error(f"Unsupported interval {bar.interval.value}")
             return
 
@@ -74,7 +74,7 @@ class AlphaLab:
                 "close": bar.close_price,
                 "volume": bar.volume,
                 "turnover": bar.turnover,
-                "open_interest": bar.open_interest
+                "open_interest": bar.open_interest,
             }
             data.append(bar_data)
 
@@ -98,7 +98,7 @@ class AlphaLab:
         vt_symbol: str,
         interval: Interval | str,
         start: datetime | str,
-        end: datetime | str
+        end: datetime | str,
     ) -> list[BarData]:
         """Load bar data"""
         # Convert types
@@ -147,7 +147,7 @@ class AlphaLab:
                 volume=row["volume"],
                 turnover=row["turnover"],
                 open_interest=row["open_interest"],
-                gateway_name="DB"
+                gateway_name="DB",
             )
             bars.append(bar)
 
@@ -159,7 +159,7 @@ class AlphaLab:
         interval: Interval | str,
         start: datetime | str,
         end: datetime | str,
-        extended_days: int
+        extended_days: int,
     ) -> pl.DataFrame | None:
         """Load bar data as DataFrame"""
         if not vt_symbols:
@@ -206,7 +206,7 @@ class AlphaLab:
                 pl.col("volume").cast(pl.Float32),
                 pl.col("turnover").cast(pl.Float32),
                 pl.col("open_interest").cast(pl.Float32),
-                (pl.col("turnover") / pl.col("volume")).cast(pl.Float32).alias("vwap")
+                (pl.col("turnover") / pl.col("volume")).cast(pl.Float32).alias("vwap"),
             )
 
             # Check for empty data
@@ -224,12 +224,17 @@ class AlphaLab:
             )
 
             # Convert zeros to NaN for suspended trading days
-            numeric_columns: list = df.columns[1:]                              # Extract numeric columns
+            numeric_columns: list = df.columns[1:]  # Extract numeric columns
 
-            mask: pl.Series = df[numeric_columns].sum_horizontal() == 0         # Sum by row, if 0 then suspended
+            mask: pl.Series = (
+                df[numeric_columns].sum_horizontal() == 0
+            )  # Sum by row, if 0 then suspended
 
-            df = df.with_columns(                                               # Convert suspended day values to NaN
-                [pl.when(mask).then(float("nan")).otherwise(pl.col(col)).alias(col) for col in numeric_columns]
+            df = df.with_columns(  # Convert suspended day values to NaN
+                [
+                    pl.when(mask).then(float("nan")).otherwise(pl.col(col)).alias(col)
+                    for col in numeric_columns
+                ]
             )
 
             # Add symbol column
@@ -243,9 +248,7 @@ class AlphaLab:
         return result_df
 
     def save_component_data(
-        self,
-        index_symbol: str,
-        index_components: dict[str, list[str]]
+        self, index_symbol: str, index_components: dict[str, list[str]]
     ) -> None:
         """Save index component data"""
         file_path: Path = self.component_path.joinpath(f"{index_symbol}")
@@ -253,12 +256,9 @@ class AlphaLab:
         with shelve.open(str(file_path)) as db:
             db.update(index_components)
 
-    @lru_cache      # noqa
+    @lru_cache  # noqa
     def load_component_data(
-        self,
-        index_symbol: str,
-        start: datetime | str,
-        end: datetime | str
+        self, index_symbol: str, start: datetime | str, end: datetime | str
     ) -> dict[datetime, list[str]]:
         """Load index component data as DataFrame"""
         file_path: Path = self.component_path.joinpath(f"{index_symbol}")
@@ -279,16 +279,11 @@ class AlphaLab:
             return index_components
 
     def load_component_symbols(
-        self,
-        index_symbol: str,
-        start: datetime | str,
-        end: datetime | str
+        self, index_symbol: str, start: datetime | str, end: datetime | str
     ) -> list[str]:
         """Collect index component symbols"""
         index_components: dict[datetime, list[str]] = self.load_component_data(
-            index_symbol,
-            start,
-            end
+            index_symbol, start, end
         )
 
         component_symbols: set[str] = set()
@@ -299,23 +294,20 @@ class AlphaLab:
         return list(component_symbols)
 
     def load_component_filters(
-        self,
-        index_symbol: str,
-        start: datetime | str,
-        end: datetime | str
+        self, index_symbol: str, start: datetime | str, end: datetime | str
     ) -> dict[str, list[tuple[datetime, datetime]]]:
         """Collect index component duration filters"""
         index_components: dict[datetime, list[str]] = self.load_component_data(
-            index_symbol,
-            start,
-            end
+            index_symbol, start, end
         )
 
         # Get all trading dates and sort
         trading_dates: list[datetime] = sorted(index_components.keys())
 
         # Initialize component duration dictionary
-        component_filters: dict[str, list[tuple[datetime, datetime]]] = defaultdict(list)
+        component_filters: dict[str, list[tuple[datetime, datetime]]] = defaultdict(
+            list
+        )
 
         # Get all component symbols
         all_symbols: set[str] = set()
@@ -352,7 +344,7 @@ class AlphaLab:
         long_rate: float,
         short_rate: float,
         size: float,
-        pricetick: float
+        pricetick: float,
     ) -> None:
         """Add contract information"""
         contracts: dict = {}
@@ -365,16 +357,11 @@ class AlphaLab:
             "long_rate": long_rate,
             "short_rate": short_rate,
             "size": size,
-            "pricetick": pricetick
+            "pricetick": pricetick,
         }
 
         with open(self.contract_path, mode="w+", encoding="UTF-8") as f:
-            json.dump(
-                contracts,
-                f,
-                indent=4,
-                ensure_ascii=False
-            )
+            json.dump(contracts, f, indent=4, ensure_ascii=False)
 
     def load_contract_setttings(self) -> dict:
         """Load contract settings"""

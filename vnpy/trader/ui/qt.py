@@ -41,12 +41,20 @@ def create_qapp(app_name: str = "VeighNa Trader") -> QtWidgets.QApplication:
     # Exception Handling
     exception_widget: ExceptionWidget = ExceptionWidget()
 
-    def excepthook(exc_type: type[BaseException], exc_value: BaseException, exc_traceback: TracebackType | None) -> None:
+    def excepthook(
+        exc_type: type[BaseException],
+        exc_value: BaseException,
+        exc_traceback: TracebackType | None,
+    ) -> None:
         """Show exception detail with QMessageBox."""
-        logger.opt(exception=(exc_type, exc_value, exc_traceback)).error("Main thread exception")
+        logger.opt(exception=(exc_type, exc_value, exc_traceback)).error(
+            "Main thread exception"
+        )
         sys.__excepthook__(exc_type, exc_value, exc_traceback)
 
-        msg: str = "".join(traceback.format_exception(exc_type, exc_value, exc_traceback))
+        msg: str = "".join(
+            traceback.format_exception(exc_type, exc_value, exc_traceback)
+        )
         exception_widget.signal.emit(msg)
 
     sys.excepthook = excepthook
@@ -54,10 +62,16 @@ def create_qapp(app_name: str = "VeighNa Trader") -> QtWidgets.QApplication:
     def threading_excepthook(args: threading.ExceptHookArgs) -> None:
         """Show exception detail from background threads with QMessageBox."""
         if args.exc_value and args.exc_traceback:
-            logger.opt(exception=(args.exc_type, args.exc_value, args.exc_traceback)).error("Background thread exception")
+            logger.opt(
+                exception=(args.exc_type, args.exc_value, args.exc_traceback)
+            ).error("Background thread exception")
             sys.__excepthook__(args.exc_type, args.exc_value, args.exc_traceback)
 
-        msg: str = "".join(traceback.format_exception(args.exc_type, args.exc_value, args.exc_traceback))
+        msg: str = "".join(
+            traceback.format_exception(
+                args.exc_type, args.exc_value, args.exc_traceback
+            )
+        )
         exception_widget.signal.emit(msg)
 
     threading.excepthook = threading_excepthook
@@ -125,29 +139,44 @@ class GatewayAppSelectPanel(QtWidgets.QDialog):
     checkbox_values_signal = QtCore.Signal(dict)
 
     def __init__(
-        self, parent=None, available_gateways=None, available_apps=None, selected_gateways=(), selected_apps=()
+        self,
+        parent=None,
+        available_gateways=None,
+        available_apps=None,
+        selected_gateways=(),
+        selected_apps=(),
     ):
         super().__init__(parent)
 
         import importlib.util  # pylint: disable=import-outside-toplevel
 
         available_gateways = [
-            gw for gw in available_gateways if importlib.util.find_spec(f"vnpy_{gw.lower()}") is not None
+            gw
+            for gw in available_gateways
+            if importlib.util.find_spec(f"vnpy_{gw.lower()}") is not None
         ]
-        available_apps = [app for app in available_apps if importlib.util.find_spec(f"vnpy_{app.lower()}") is not None]
+        available_apps = [
+            app
+            for app in available_apps
+            if importlib.util.find_spec(f"vnpy_{app.lower()}") is not None
+        ]
 
         self.setWindowTitle("选择接口和应用")
 
         # Create first group box
         self.groupBox1 = QtWidgets.QGroupBox("接口", self)
         layout1 = QtWidgets.QGridLayout()
-        self.checkboxes1 = self.create_checkboxes(layout1, names=available_gateways, selected=selected_gateways)
+        self.checkboxes1 = self.create_checkboxes(
+            layout1, names=available_gateways, selected=selected_gateways
+        )
         self.groupBox1.setLayout(layout1)
 
         # Create second group box
         self.groupBox2 = QtWidgets.QGroupBox("应用", self)
         layout2 = QtWidgets.QGridLayout()
-        self.checkboxes2 = self.create_checkboxes(layout2, names=available_apps, selected=selected_apps)
+        self.checkboxes2 = self.create_checkboxes(
+            layout2, names=available_apps, selected=selected_apps
+        )
         self.groupBox2.setLayout(layout2)
 
         self.ok_button = QtWidgets.QPushButton("确定", self)
@@ -180,8 +209,12 @@ class GatewayAppSelectPanel(QtWidgets.QDialog):
 
     def get_checkbox_values(self):
         return {
-            "gateways": [checkbox.text() for checkbox in self.checkboxes1 if checkbox.isChecked()],
-            "apps": [checkbox.text() for checkbox in self.checkboxes2 if checkbox.isChecked()],
+            "gateways": [
+                checkbox.text() for checkbox in self.checkboxes1 if checkbox.isChecked()
+            ],
+            "apps": [
+                checkbox.text() for checkbox in self.checkboxes2 if checkbox.isChecked()
+            ],
         }
 
     def emit_checkbox_values(self):

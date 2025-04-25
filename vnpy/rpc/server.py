@@ -28,8 +28,8 @@ class RpcServer:
         self._socket_pub: zmq.Socket = self._context.socket(zmq.PUB)
 
         # Worker thread related
-        self._active: bool = False                          # RpcServer status
-        self._thread: threading.Thread | None = None        # RpcServer thread
+        self._active: bool = False  # RpcServer status
+        self._thread: threading.Thread | None = None  # RpcServer thread
         self._lock: threading.Lock = threading.Lock()
 
         # Heartbeat related

@@ -46,8 +46,8 @@ class RpcClient:
             socket.setsockopt(zmq.TCP_KEEPALIVE_IDLE, 60)
 
         # Worker thread relate, used to process data pushed from server
-        self._active: bool = False                 # RpcClient status
-        self._thread: threading.Thread | None = None      # RpcClient thread
+        self._active: bool = False  # RpcClient status
+        self._thread: threading.Thread | None = None  # RpcClient thread
         self._lock: threading.Lock = threading.Lock()
 
         self._last_received_ping: float = time()
@@ -57,6 +57,7 @@ class RpcClient:
         """
         Realize remote call function
         """
+
         # Perform remote call task
         def dorpc(*args: Any, **kwargs: Any) -> Any:
             # Get timeout value from kwargs, default value is 30 seconds
@@ -85,11 +86,7 @@ class RpcClient:
 
         return dorpc
 
-    def start(
-        self,
-        req_address: str,
-        sub_address: str
-    ) -> None:
+    def start(self, req_address: str, sub_address: str) -> None:
         """
         Start RpcClient
         """

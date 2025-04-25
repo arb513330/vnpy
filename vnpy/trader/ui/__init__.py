@@ -1,4 +1,4 @@
-from .qt import QtCore, QtWidgets, QtGui, Qt, create_qapp, GatewayAppSelectPanel
+from .qt import QtCore, QtWidgets, QtGui, Qt, create_qapp, GatewayAppSelectPanel  # noqa
 from .mainwindow import MainWindow
 
 

@@ -14,9 +14,20 @@ from vnpy.event import EventEngine
 
 from .qt import QtCore, QtGui, QtWidgets
 from .widget import (
-    AboutDialog, AccountMonitor, ActiveOrderMonitor, BaseMonitor, ConnectDialog, ContractManager,
-    GlobalDialog, LogMonitor, OrderMonitor, PositionMonitor, TickMonitor, TradeMonitor, TradingWidget,
-    ModuleUpdateDialog
+    AboutDialog,
+    AccountMonitor,
+    ActiveOrderMonitor,
+    BaseMonitor,
+    ConnectDialog,
+    ContractManager,
+    GlobalDialog,
+    LogMonitor,
+    OrderMonitor,
+    PositionMonitor,
+    TickMonitor,
+    TradeMonitor,
+    TradingWidget,
+    ModuleUpdateDialog,
 )
 from ..engine import MainEngine, BaseApp
 from ..utility import get_icon_path, TRADER_DIR
@@ -38,7 +49,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.main_engine: MainEngine = main_engine
         self.event_engine: EventEngine = event_engine
 
-        self.window_title: str = _("VeighNa Trader 社区版 - {}   [{}]").format(vnpy.__version__, TRADER_DIR)
+        self.window_title: str = _("VeighNa Trader 社区版 - {}   [{}]").format(
+            vnpy.__version__, TRADER_DIR
+        )
 
         self.widgets: dict[str, QtWidgets.QWidget] = {}
         self.monitors: dict[str, BaseMonitor] = {}
@@ -98,11 +111,18 @@ class MainWindow(QtWidgets.QMainWindow):
         gateway_names: list = self.main_engine.get_all_gateway_names()
         for name in gateway_names:
             func: Callable = partial(self.connect_gateway_dialog, name)
-            self.add_action(sys_menu, _("连接{}").format(name), get_icon_path(__file__, "connect.ico"), func)
+            self.add_action(
+                sys_menu,
+                _("连接{}").format(name),
+                get_icon_path(__file__, "connect.ico"),
+                func,
+            )
 
         sys_menu.addSeparator()
 
-        self.add_action(sys_menu, _("退出"), get_icon_path(__file__, "exit.ico"), self.close)
+        self.add_action(
+            sys_menu, _("退出"), get_icon_path(__file__, "exit.ico"), self.close
+        )
 
         # App menu
         app_menu: QtWidgets.QMenu = bar.addMenu(_("功能"))
@@ -209,18 +229,21 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def create_dock(
         self, widget_class: type[WidgetType], name: str, area: QtCore.Qt.DockWidgetArea
-    ) -> Tuple[QtWidgets.QWidget, QtWidgets.QDockWidget]:
+    ) -> tuple[QtWidgets.QWidget, QtWidgets.QDockWidget]:
         """
         Initialize a dock widget.
         """
-        widget: WidgetType = widget_class(self.main_engine, self.event_engine)      # type: ignore
+        widget: WidgetType = widget_class(self.main_engine, self.event_engine)  # type: ignore
         if isinstance(widget, BaseMonitor):
             self.monitors[name] = widget
 
         dock: QtWidgets.QDockWidget = QtWidgets.QDockWidget(name)
         dock.setWidget(widget)
         dock.setObjectName(name)
-        dock.setFeatures(dock.DockWidgetFeature.DockWidgetFloatable | dock.DockWidgetFeature.DockWidgetMovable)
+        dock.setFeatures(
+            dock.DockWidgetFeature.DockWidgetFloatable
+            | dock.DockWidgetFeature.DockWidgetMovable
+        )
         self.addDockWidget(area, dock)
         return widget, dock
 
@@ -239,7 +262,8 @@ class MainWindow(QtWidgets.QMainWindow):
             self,
             _("退出"),
             _("确认退出？"),
-            QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No,
+            QtWidgets.QMessageBox.StandardButton.Yes
+            | QtWidgets.QMessageBox.StandardButton.No,
             QtWidgets.QMessageBox.StandardButton.No,
         )
 
@@ -287,7 +311,7 @@ class MainWindow(QtWidgets.QMainWindow):
         """
         settings: QtCore.QSettings = QtCore.QSettings(self.window_title, name)
         state = settings.value("state")
-        geometry: Union[PySide6.QtCore.QByteArray, bytes] = settings.value("geometry")
+        geometry: PySide6.QtCore.QByteArray | bytes = settings.value("geometry")
 
         if isinstance(state, QtCore.QByteArray):
             self.restoreState(state)
